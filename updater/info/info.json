@@ -1,0 +1,6 @@
+{
+    "name": "Remote control",
+    "version": "0.96-685",
+    "revision": "0759d71",
+    "description": "Remote access to all Red Pitaya inputs/outputs from MATLAB/LabVIEW/Scilab/Python"
+}

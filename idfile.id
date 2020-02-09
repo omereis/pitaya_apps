@@ -1,0 +1,72 @@
+{
+	"version" : "2.0",
+	"mac_address" : "00:26:32:f0:47:20",
+	"zynq_id" : "578108271429716",
+	"apps" : [
+		{
+			"app_id" : "scopegenpro",
+			"app_name" : "Oscilloscope & Signal Generator",
+			"app_checksum" : "434b7954ebe15d207b7cd70293face7c"
+		},
+		{
+			"app_id" : "la_pro",
+			"app_name" : "Logic analyser",
+			"app_checksum" : "34b37aadf5cec87a5cdd4c97ed99d4a7"
+		},
+		{
+			"app_id" : "stemlab_sdr_transceiver_hpsdr",
+			"app_name" : "STEMlab SDR transceiver",
+			"app_checksum" : "27ed5615f5ebd7b3e5b60dfcf6c8f32e"
+		},
+		{
+			"app_id" : "ba_pro",
+			"app_name" : "Bode Analyser",
+			"app_checksum" : "155e12b5d84a38a85380a57d8190d376"
+		},
+		{
+			"app_id" : "lcr_meter",
+			"app_name" : "LCR meter",
+			"app_checksum" : "f9525ae80a40218d0e712fee3cdc7e5a"
+		},
+		{
+			"app_id" : "spectrumpro",
+			"app_name" : "DFT Spectrum Analyser",
+			"app_checksum" : "e62a525b3b890d40fac2888cae819845"
+		},
+		{
+			"app_id" : "stemlab_vna",
+			"app_name" : "Vector Network Analyzer",
+			"app_checksum" : "da9f71f742c31bff85655ac38d700b7c"
+		},
+		{
+			"app_id" : "comperMy12",
+			"app_name" : "LED control",
+			"app_checksum" : "d50d973e0c3c5fab2187fa0bfdf54dbb"
+		},
+		{
+			"app_id" : "ReadAnalogVoltage",
+			"app_name" : "Analog read",
+			"app_checksum" : "1a9d974ffcaec99cbb62d1854d9e9fa0"
+		},
+		{
+			"app_id" : "spectrum",
+			"app_name" : "Spectrum Analyzer",
+			"app_checksum" : "1d55bed5da9f9292442624418bd9059a"
+		},
+		{
+			"app_id" : "mcpha",
+			"app_name" : "MCPHA",
+			"app_checksum" : "87f81e8051c59339e1828e599c10e10e"
+		},
+		{
+			"app_id" : "myFirstApp",
+			"app_name" : "My First Application",
+			"app_checksum" : "6f572299829ef760b8fc96854a582b1e"
+		},
+		{
+			"app_id" : "JoFirstApp12",
+			"app_name" : "Hello Gorry",
+			"app_checksum" : "ae690a8824c64e070aae412366c33f8d"
+		}
+	]
+}

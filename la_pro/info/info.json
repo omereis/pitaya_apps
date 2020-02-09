@@ -1,0 +1,6 @@
+{
+    "name": "Logic analyser",
+    "version": "0.96-685",
+    "revision": "0759d71",
+    "description": "125MS/s Logic analyser with SPI, I2C & UART protocol decoder"
+}

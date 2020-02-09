@@ -1,0 +1,69 @@
+html,
+body {
+    width: 100%;
+    height: 100%;
+}
+
+body {
+    color: #cdcccc;
+    overflow: auto;
+    margin: 0;
+}
+
+#content {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto;
+    background-color: #333333;
+    text-align: center;
+}
+
+.flex-container {
+  margin: auto;
+  display: flex;
+  height: 300px;
+  width: 360px;
+  flex-wrap: wrap;
+  align-content: space-around;
+  align-content: center;
+  background-color: DodgerBlue;
+}
+
+.flex-container>div {
+  background-color: #f1f1f1;
+  width: 80px;
+  margin: 10px;
+  padding: 40px;
+  text-align: center;
+  line-height: 30px;
+  font-size: 20px;
+}
+
+
+#hello_message {
+    padding-top: 20px;
+    margin-bottom: 20px;
+}
+
+#value {
+    color: black;
+}
+
+#led_off {
+    color: #F00;
+}
+
+#led_on {
+    display: none;
+    color: #0F0;
+};
+
+/* #led_state {
+    margin-top: 20px;
+    padding: 10px;
+}
+
+#read_button {
+    margin-top: 20px;
+    padding: 10px;
+} */
