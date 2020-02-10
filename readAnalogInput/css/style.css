@@ -5,35 +5,31 @@ body {
 }
 
 body {
-    color: #cdcccc;
+	color: #bd0404;
     overflow: auto;
     margin: 0;
 }
 
 #content {
-    width: 700px;
-    height: 350px;
+    width: 400px;
+    height: 200px;
     margin: 0 auto;
-    background-color: #97fafa;
+	background-color: #69f5e2;
     text-align: center;
 }
 
 #hello_message {
     padding-top: 20px;
     margin-bottom: 20px;
-	color: #0018f5;
 }
 
-#led_off {
-    color: #F00;
+#value {
+    margin-top: 20px;
+	color: #021157;
+	background-color: #bbbbbb;
 }
 
-#led_on {
-    display: none;
-    color: rgb(61, 145, 58);
-}
-
-#led_state {
+#read_button {
     margin-top: 20px;
     padding: 10px;
 }
