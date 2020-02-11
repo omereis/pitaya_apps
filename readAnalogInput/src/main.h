@@ -1,15 +1,25 @@
 #pragma once
 
 
+#define	JSON_ISO_STRICT
+#define	NDEBUG
+
 #include <DataManager.h>
 #include <CustomParameters.h>
 #include "rpApp.h"
 
 
-
-
 #define IS_NEW(X) X.Value() != X.NewValue()
 
+//using namespace std;
+#include <vector>
+#ifndef	TIntVec
+typedef	std::vector<int> TIntVec;
+#endif
+
+#ifndef	TStrVec
+typedef	std::vector<std::string> TStrVec;
+#endif
 
 #ifdef __cplusplus
 extern "C" {

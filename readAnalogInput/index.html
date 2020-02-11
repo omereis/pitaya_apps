@@ -4,7 +4,7 @@
 <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8"></meta>
     <title>Read voltage</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/read_analog_style.css">
     <script src="js/jquery-2.1.3.min.js"></script>
     <script src="js/pako.js"></script>
     <script src="js/app.js"></script>
@@ -13,8 +13,31 @@
 <body>
    	<div id='content'>
    		<div id='hello_message'>Connecting...</div>
-      	<div id='value'></div>
-      	<button id='read_button'>Read</button>
+          <div id='value'></div>
+          <table id='tblUI' >
+              <tr>
+                  <td>
+                    <button id='read_button'>Read</button>
+                  </td>
+                  <td>
+                    <button id='btnStartStop' onclick="toggleStartStop()">Start</button>
+                  </td>
+              </tr>
+              <tr>
+                  <td colspan="2">
+                      <input type="text" id="txtChannels" value="2,3,4,5,6">
+                  </td>
+              </tr>
+              <tr>
+                  <td>
+                    <div id='divLog'></div>
+                  </td>
+              </tr>
+
+          </table>
+          
+          
+
    	</div>
 </body>
 </html>

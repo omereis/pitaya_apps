@@ -111,40 +111,61 @@
 //-----------------------------------------------------------------------------
     // Processes newly received data for signals
     APP.processSignals = function(new_signals) {
-
         var voltage;
-
-
         // Draw signals
         for (sig_name in new_signals) {
-
             // Ignore empty signals
             if (new_signals[sig_name].size == 0) continue;
-
             // Read signal
             voltage = new_signals[sig_name].value[0];
-
             //Update value
             $('#value').text(parseFloat(voltage).toFixed(2) + "V");
         }
     };
-
-
 }(window.APP = window.APP || {}, jQuery));
-
-
-
-
+//-----------------------------------------------------------------------------
 // Page onload event handler
 $(function() {
-
     // Button click func
     $("#read_button").click(function() {
-
         APP.readValue(); 
     });
-
-
     // Start application
     APP.startApp();
 });
+//-----------------------------------------------------------------------------
+function toggleStartStop() {
+    var btn = document.getElementById('btnStartStop');
+    if (btn) {
+        if (btn.innerText.toLowerCase() == "start") {
+			readAnalogInput();
+			//APP.readValue();
+            btn.innerText = "Stop";
+		}
+        else
+            btn.innerText = "Start";
+    }
+}
+//-----------------------------------------------------------------------------
+function readChannels() {
+}
+//-----------------------------------------------------------------------------
+function readAnalogInput(input) {
+	var local = {};
+	var t=document.getElementById('txtChannels');
+
+//	console.log(t.value);
+	if (typeof(input) == 'undefined')
+		input = 0;
+	local['READ_VALUE'] = { value: true };
+	local['INPUT'] = { value: 17 };
+	local['STR_INPUT'] = { value: t.value };
+
+//	alert (JSON.stringify({ parameters: local }));
+	var txt = JSON.stringify({ parameters: local });
+//	APP.ws.send(JSON.stringify({ parameters: local }));
+	APP.ws.send(txt);
+    var d=document.getElementById('divLog');
+    d.innerHTML += txt + '<br>';
+}
+//-----------------------------------------------------------------------------

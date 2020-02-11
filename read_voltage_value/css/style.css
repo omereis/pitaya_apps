@@ -1,0 +1,41 @@
+html,
+body {
+    width: 100%;
+    height: 100%;
+}
+
+body {
+    color: #bd0404;
+    overflow: auto;
+    margin: 0;
+}
+
+#content {
+    width: 400px;
+    height: 200px;
+    margin: 0 auto;
+    background-color: #11a08d;
+    text-align: center;
+}
+
+#hello_message {
+    padding-top: 20px;
+    margin-bottom: 20px;
+}
+
+#value {
+    margin-top: 20px;
+    color: #021157;
+    background-color: #bbbbbb;
+}
+
+#read_button {
+    margin-top: 20px;
+    padding: 10px;
+}
+
+#tblUI {
+    border: 1;
+    width: 100%;
+    background-color: aquamarine;
+}
