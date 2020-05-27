@@ -84,6 +84,36 @@ float t_params[PARAMS_NUM] = { 0, 1e6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 static int g_dec[DEC_MAX] = { 1,  8,  64,  1024,  8192,  65536 };
 
 /*****************************************************************************/
+char *strlwr (char *sz) {
+	int n;
+
+	if (sz != NULL) {
+		for (n=0 ; n < strlen(sz) ; n++) {
+			if ((sz[n] >= 'A') && (sz[n] <= 'Z'))
+				sz[n] = sz[n] - 'A';
+		}
+	}
+	return sz;
+}
+/*****************************************************************************/
+int strcmpi (const char *sz1, const char *sz2) {
+	char *szTmp1, *szTmp2;
+	int iRetValue = 0;
+
+	if ((sz1 != NULL) && (sz2 != NULL)) {
+		szTmp1 = calloc(sizeof(sz1[0]), strlen(sz1) + 1);
+		szTmp2 = calloc(sizeof(sz2[0]), strlen(sz2) + 1);
+		strcpy (szTmp1, sz1);
+		strcpy (szTmp2, sz2);
+		szTmp1 = strlwr (szTmp1);
+		szTmp2 = strlwr (szTmp2);
+		iRetValue = strcmp (szTmp1, szTmp2);
+		free (szTmp2);
+		free (szTmp1);
+	}
+	return (iRetValue);
+}
+/*****************************************************************************/
 /** Print usage information */
 void usage() {
 
@@ -95,7 +125,7 @@ void usage() {
             "  --shaping       -s    Use shaping filter in FPGA (default: disabled).\n"
             "  --gain1=g       -1 g  Use Channel 1 gain setting g [lv, hv] (default: lv).\n"
             "  --gain2=g       -2 g  Use Channel 2 gain setting g [lv, hv] (default: lv).\n"
-            "  --file=<name>   -f    Output file name (by O.E.\n"
+            "  --file=<name>   -f    Output file name (by O.E.)\n"
             "  --version       -v    Print version info.\n"
             "  --help          -h    Print this message.\n"
             "\n"
@@ -115,17 +145,19 @@ void usage() {
 /** Gain string (lv/hv) to number (0/1) transformation */
 int get_gain(int *gain, const char *str)
 {
-    if ( (strncmp(str, "lv", 2) == 0) || (strncmp(str, "LV", 2) == 0) ) {
-        *gain = 0;
-        return 0;
-    }
-    if ( (strncmp(str, "hv", 2) == 0) || (strncmp(str, "HV", 2) == 0) ) {
-        *gain = 1;
-        return 0;
-    }
+	int nResult = 1;
 
-    fprintf(stderr, "Unknown gain: %s\n", str);
-    return -1;
+    if (strcmpi (str, "lv") == 0) {
+        *gain = 0;
+    }
+    else if (strcmpi (str, "hv") == 0) {
+        *gain = 1;
+    }
+	else {
+		nResult = 0;
+	    fprintf(stderr, "Unknown gain: %s\n", str);
+	}
+    return (nResult);
 }
 
 /*****************************************************************************/
@@ -264,8 +296,6 @@ void print_params(struct rp_params *prp_params) {
 int main(int argc, char *argv[])
 {
     g_argv0 = argv[0];
-    int equal = 0;
-    int shaping = 0;
     FILE *fOut = NULL, *filePrint;
     struct rp_params params;
 
@@ -275,130 +305,6 @@ int main(int argc, char *argv[])
         print_params(&params);
         exit(EXIT_SUCCESS);
     }
-
-
-    /* Command line options */
-    static struct option long_options[] = {
-            /* These options set a flag. */
-            {"equalization", no_argument,       0, 'e'},
-            {"shaping",      no_argument,       0, 's'},
-            {"gain1",        required_argument, 0, '1'},
-            {"gain2",        required_argument, 0, '2'},
-            {"file",         required_argument, 0, 'f'},
-            {"version",      no_argument,       0, 'v'},
-            {"help",         no_argument,       0, 'h'},
-            {0, 0, 0, 0}
-    };
-    const char *optstring = "es1:2:f:vh";
-
-    /* getopt_long stores the option index here. */
-    int option_index = 0;
-
-    int ch = -1;
-    while ( (ch = getopt_long( argc, argv, optstring, long_options, &option_index )) != -1 ) {
-	printf("'ch'=%c\n", ch);
-
-        switch ( ch ) {
-
-        case 'e':
-            equal = 1;
-            break;
-
-        case 's':
-            shaping = 1;
-            break;
-
-        /* Gain Channel 1 */
-        case '1':
-        {
-            int gain1;
-            if (get_gain(&gain1, optarg) != 0) {
-                usage();
-                return -1;
-            }
-            t_params[GAIN1_PARAM] = gain1;
-        }
-        break;
-
-        /* Gain Channel 2 */
-        case '2':
-        {
-            int gain2;
-            if (get_gain(&gain2, optarg) != 0) {
-                usage();
-                return -1;
-            }
-            t_params[GAIN2_PARAM] = gain2;
-        }
-        break;
-
-        case 'f':
-            printf("Option 'f', optarg=%s\n", optarg);
-            if (strlen(optarg) > 0) {
-                fOut = fopen(optarg, "w+");
-                printf("\n\nFile %s opened\n\n", optarg);
-                //fprintf(fOut, "\n\nFile %s opened\n\n", optarg);
-            }
-            else
-                fOut = NULL;
-            break;
-            //return (-1);
-
-        case 'v':
-            fprintf(stdout, "%s version %s-%s\n", g_argv0, VERSION_STR, REVISION_STR);
-            exit(EXIT_SUCCESS);
-            break;
-
-        case 'h':
-            usage();
-            exit(EXIT_SUCCESS);
-            break;
-
-        default:
-            usage();
-            exit( EXIT_FAILURE );
-        }
-    }
-
-    /* Acquisition size */
-    uint32_t size = 0;
-    if (optind < argc) {
-        size = atoi(argv[optind]);
-        if (size > SIGNAL_LENGTH) {
-            fprintf(stderr, "Invalid SIZE: %s\n", argv[optind]);
-            usage();
-            exit( EXIT_FAILURE );
-        }
-    } else {
-        fprintf(stderr, "SIZE parameter missing\n");
-        usage();
-        exit( EXIT_FAILURE );
-    }
-    optind++;
-
-    /* Optional decimation */
-    if (optind < argc) {
-        uint32_t dec = atoi(argv[optind]);
-        uint32_t idx;
-
-        for (idx = 0; idx < DEC_MAX; idx++) {
-            if (dec == g_dec[idx]) {
-                break;
-            }
-        }
-
-        if (idx != DEC_MAX) {
-            t_params[TIME_RANGE_PARAM] = idx;
-        } else {
-            fprintf(stderr, "Invalid decimation DEC: %s\n", argv[optind]);
-            usage();
-            return -1;
-        }
-    }
-
-    /* Filter parameters */
-    t_params[EQUAL_FILT_PARAM] = equal;
-    t_params[SHAPE_FILT_PARAM] = shaping;
 
 
     /* Initialization of Oscilloscope application */
@@ -414,7 +320,7 @@ int main(int argc, char *argv[])
     }
 
     printf("Signal length: %d\n", SIGNAL_LENGTH);
-    {
+/*    {*/
         float **s;
         int sig_num, sig_len;
         int i;
@@ -446,7 +352,7 @@ int main(int argc, char *argv[])
                  * s[2][i] - Channel ADC2 raw signal
                  */
 		
-                for(i = 0; i < MIN(size, sig_len); i++) {
+                for(i = 0; i < MIN(params.nSize, sig_len); i++) {
                     fprintf(filePrint, "%7d, %7d\n", (int)s[1][i], (int)s[2][i]);
                     //printf("%7d %7d\n", (int)s[1][i], (int)s[2][i]);
                 }
@@ -461,7 +367,7 @@ int main(int argc, char *argv[])
         }
         if (fOut != 0)
             fclose(fOut);
-    }
+/*    }*/
 
     if(rp_app_exit() < 0) {
         fprintf(stderr, "rp_app_exit() failed!\n");
