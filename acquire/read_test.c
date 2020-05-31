@@ -185,6 +185,7 @@ int gain_error(int nChannel, char *szArgument)
 /*****************************************************************************/
 int get_acquisition_size(int argc, char *argv[], int iStart, struct rp_params *prp_params) {
 	int nSize;
+
     if (iStart < argc) {
 		nSize = atoi(argv[iStart]);
         if (nSize > SIGNAL_LENGTH) {
@@ -205,6 +206,8 @@ uint32_t get_decimation_index (int argc, char *argv[], int iStart) {
     int idxDec = -1;
 	int n, dec;
 
+	printf ("==================================================\n");
+	printf ("get_decimation_index, iStart=%d, argc=%d\n", iStart, argc);
     if (iStart < argc) {
         dec = atoi(argv[iStart]);
         for (n=0 ; (n < sizeof(g_dec) / sizeof(g_dec[0])) && (idxDec < 0) ; n++) {
@@ -219,6 +222,9 @@ uint32_t get_decimation_index (int argc, char *argv[], int iStart) {
             return -1;
         }
     }
+	else // decimation not stated, therefore returning the default
+		idxDec = 0;
+	printf ("==================================================\n");
 	return (idxDec);
 }
 /*****************************************************************************/
@@ -242,6 +248,7 @@ int GetCommandLineParam (int argc, char* argv[], struct rp_params *prp_params) {
                 break;
         /* Gain Channel 1 */
         case '1':
+			printf("GetCommandLineParam, optarg='%s'\n", optarg);
             if (get_gain(&nGain, optarg) != 0)
                 prp_params->nGainCh1 = nGain;
             else
@@ -292,6 +299,17 @@ void print_params(struct rp_params *prp_params) {
 		printf ("File Name is NULL\n");
 }
 /*****************************************************************************/
+void set_params (struct rp_params *pParams, float t_params[])
+{
+//	memset (pParams, 0, sizeof (*pParams));
+	t_params[EQUAL_FILT_PARAM] = (pParams->nEqual > 0 ? 1 : 0);
+	t_params[SHAPE_FILT_PARAM] = (pParams->nShaping > 0 ? 1 : 0);
+	t_params[GAIN1_PARAM] = pParams->nGainCh1;
+	t_params[GAIN2_PARAM] = pParams->nGainCh2;
+	t_params[TIME_RANGE_PARAM] = pParams->idxDecimation;
+
+}
+/*****************************************************************************/
 /** Acquire utility main */
 int main(int argc, char *argv[])
 {
@@ -303,15 +321,16 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     else {
         print_params(&params);
-        exit(EXIT_SUCCESS);
     }
 
+	set_params (&params, t_params);
 
     /* Initialization of Oscilloscope application */
     if(rp_app_init() < 0) {
         fprintf(stderr, "rp_app_init() failed!\n");
         return -1;
     }
+	printf ("Red Pitaya initialized\n");
 
     /* Setting of parameters in Oscilloscope main module */
     if(rp_set_params((float *)&t_params, PARAMS_NUM) < 0) {
@@ -334,8 +353,10 @@ int main(int argc, char *argv[])
         }
 
         printf("Memory Allocated\n");
-        if (fOut != 0) {
-            filePrint = fOut;
+		if (params.szFileName != NULL) {
+			filePrint = fopen (params.szFileName, "w+");
+//        if (fOut != 0) {
+//            filePrint = fOut;
             printf("Printing to out file\n");
             //fprintf(fOut, "Printing to out file\n");
         }
@@ -374,5 +395,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+	if (params.szFileName != NULL)
+		free (params.szFileName);
     return 0;
 }
