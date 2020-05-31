@@ -113,6 +113,7 @@ int get_gain(int *gain, const char *str)
 int main(int argc, char *argv[])
 {
     g_argv0 = argv[0];
+	int n;
     int equal = 0;
     int shaping = 0;
     FILE *fOut = NULL, *filePrint;
@@ -245,6 +246,10 @@ int main(int argc, char *argv[])
     t_params[EQUAL_FILT_PARAM] = equal;
     t_params[SHAPE_FILT_PARAM] = shaping;
 
+	printf("------------------------------------------------------\n");
+	for (n=0 ; n < sizeof(t_params) / sizeof(t_params[0]) ; n++)
+		printf ("t_params[%02d] = %g\n", n, t_params[n]);
+	printf("------------------------------------------------------\n");
 
     /* Initialization of Oscilloscope application */
     if(rp_app_init() < 0) {
