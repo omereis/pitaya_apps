@@ -328,13 +328,11 @@ void *rp_osc_worker_thread(void *args)
         pthread_mutex_lock(&rp_osc_ctrl_mutex);
         state = rp_osc_ctrl;
         if(rp_osc_params_dirty) {
-            memcpy(&curr_params, &rp_osc_params, 
-                   sizeof(rp_osc_params_t)*PARAMS_NUM);
+            memcpy(&curr_params, &rp_osc_params, sizeof(rp_osc_params_t)*PARAMS_NUM);
             fpga_update = rp_osc_params_fpga_update;
 
             rp_osc_params_dirty = 0;
-            dec_factor = 
-                osc_fpga_cnv_time_range_to_dec(curr_params[TIME_RANGE_PARAM].value);
+            dec_factor = osc_fpga_cnv_time_range_to_dec(curr_params[TIME_RANGE_PARAM].value);
             time_vect_update = 1;
         }
         pthread_mutex_unlock(&rp_osc_ctrl_mutex);
