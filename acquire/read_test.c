@@ -121,8 +121,8 @@ void usage() {
             "\n"
             "Usage: %s [OPTION]... SIZE <DEC>\n"
             "\n"
-            "  --equalization  -e    Use equalization filter in FPGA (default: disabled).\n"
-            "  --shaping       -s    Use shaping filter in FPGA (default: disabled).\n"
+            //"  --equalization  -e    Use equalization filter in FPGA (default: disabled).\n"
+            //"  --shaping       -s    Use shaping filter in FPGA (default: disabled).\n"
             "  --gain1=g       -1 g  Use Channel 1 gain setting g [lv, hv] (default: lv).\n"
             "  --gain2=g       -2 g  Use Channel 2 gain setting g [lv, hv] (default: lv).\n"
             "  --file=<name>   -f    Output file name (by O.E.)\n"
@@ -165,8 +165,8 @@ int get_gain(int *gain, const char *str)
 /*****************************************************************************/
 static struct option long_options[] = {
     /* These options set a flag. */
-    {"equalization", no_argument,       0, 'e'},
-    {"shaping",      no_argument,       0, 's'},
+    /*{"equalization", no_argument,       0, 'e'},
+    {"shaping",      no_argument,       0, 's'},*/
     {"gain1",        required_argument, 0, '1'},
     {"gain2",        required_argument, 0, '2'},
     {"file",         required_argument, 0, 'f'},
@@ -174,7 +174,8 @@ static struct option long_options[] = {
     {"help",         no_argument,       0, 'h'},
     {0, 0, 0, 0}
 };
-const char *optstring = "es1:2:f:vh";
+//const char *optstring = "es1:2:f:vh";
+const char *optstring = "1:2:f:vh";
 /*****************************************************************************/
 int gain_error(int nChannel, char *szArgument)
 {
@@ -206,8 +207,6 @@ uint32_t get_decimation_index (int argc, char *argv[], int iStart) {
     int idxDec = -1;
 	int n, dec;
 
-	printf ("==================================================\n");
-	printf ("get_decimation_index, iStart=%d, argc=%d\n", iStart, argc);
     if (iStart < argc) {
         dec = atoi(argv[iStart]);
         for (n=0 ; (n < sizeof(g_dec) / sizeof(g_dec[0])) && (idxDec < 0) ; n++) {
@@ -224,7 +223,6 @@ uint32_t get_decimation_index (int argc, char *argv[], int iStart) {
     }
 	else // decimation not stated, therefore returning the default
 		idxDec = 0;
-	printf ("==================================================\n");
 	return (idxDec);
 }
 /*****************************************************************************/
@@ -238,7 +236,6 @@ int GetCommandLineParam (int argc, char* argv[], struct rp_params *prp_params) {
     }
     memset(prp_params, 0, sizeof(*prp_params));
     while ( (ch = getopt_long( argc, argv, optstring, long_options, &option_index )) != -1 ) {
-	    printf("'ch'=%c\n", ch);
         switch ( ch ) {
             case 'e':
                 prp_params->nEqual = 1;
@@ -248,7 +245,6 @@ int GetCommandLineParam (int argc, char* argv[], struct rp_params *prp_params) {
                 break;
         /* Gain Channel 1 */
         case '1':
-			printf("GetCommandLineParam, optarg='%s'\n", optarg);
             if (get_gain(&nGain, optarg) != 0)
                 prp_params->nGainCh1 = nGain;
             else
@@ -307,7 +303,73 @@ void set_params (struct rp_params *pParams, float t_params[])
 	t_params[GAIN1_PARAM] = pParams->nGainCh1;
 	t_params[GAIN2_PARAM] = pParams->nGainCh2;
 	t_params[TIME_RANGE_PARAM] = pParams->idxDecimation;
+}
+/*****************************************************************************/
+float **create_buffer(int nBufferLength, int nSignals)
+{
+    float **pf;
+    int n;
 
+    pf = (float **)malloc(nSignals * sizeof(float *));
+    for(n=0 ; n < nSignals ; n++)
+        pf[n] = (float *) malloc(nBufferLength * sizeof(float));
+    return (pf);
+}
+/*****************************************************************************/
+void free_buffer(float **pfBuffer, int nSignals)
+{
+    int n;
+
+    for (n=nSignals ; n > 0 ; n--)
+        free (pfBuffer[n - 1]);
+    free (pfBuffer);
+}
+/*****************************************************************************/
+FILE *set_out_file (const char *szFileName, FILE **pfOut)
+{
+    FILE *filePrint;
+
+	if (szFileName != NULL) {
+		*pfOut = filePrint = fopen (szFileName, "w+");
+        printf("Printing to outpu file %s\n", szFileName);
+    }
+    else {
+        filePrint = stdout;
+        *pfOut = NULL;
+        printf ("Printing to stdout\n");
+    }
+    return (filePrint);
+}
+/*****************************************************************************/
+int read_signals (float **pfBuffer, FILE *filePrint, struct rp_params *pParams)
+{
+    int sig_num, sig_len, i, ret_val;
+    int retries = 150000;
+
+    while(retries >= 0) {
+        if((ret_val = rp_get_signals(&pfBuffer, &sig_num, &sig_len)) >= 0) {
+                /* Signals acquired in s[][]:
+                 * s[0][i] - TODO
+                 * s[1][i] - Channel ADC1 raw signal
+                 * s[2][i] - Channel ADC2 raw signal
+                 */
+		
+            for(i = 0; i < MIN(pParams->nSize, sig_len); i++) {
+                //fprintf(filePrint, "%7d, %7d\n", (int)pfBuffer[1][i], (int)pfBuffer[2][i]);
+                //fprintf(filePrint, "%g, %g\n", pfBuffer[1][i], pfBuffer[2][i]);
+                fprintf(filePrint, "%g\n", pfBuffer[1][i]);
+                //printf("%7d %7d\n", (int)s[1][i], (int)s[2][i]);
+            }
+            break;
+        }
+
+        if(retries-- == 0) {
+            fprintf(stderr, "Signal scquisition was not triggered!\n");
+            return(0);
+        }
+        usleep(1000);
+    }
+    return (1);
 }
 /*****************************************************************************/
 /** Acquire utility main */
@@ -319,9 +381,8 @@ int main(int argc, char *argv[])
 
     if (GetCommandLineParam (argc, argv, &params) < 0)
         exit(EXIT_FAILURE);
-    else {
+    else
         print_params(&params);
-    }
 
 	set_params (&params, t_params);
 
@@ -330,7 +391,6 @@ int main(int argc, char *argv[])
         fprintf(stderr, "rp_app_init() failed!\n");
         return -1;
     }
-	printf ("Red Pitaya initialized\n");
 
     /* Setting of parameters in Oscilloscope main module */
     if(rp_set_params((float *)&t_params, PARAMS_NUM) < 0) {
@@ -338,63 +398,21 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    printf("Signal length: %d\n", SIGNAL_LENGTH);
-/*    {*/
-        float **s;
-        int sig_num, sig_len;
-        int i;
-        int ret_val;
+    float **pfBuffer;
 
-        int retries = 150000;
+    pfBuffer = create_buffer(SIGNAL_LENGTH, SIGNALS_NUM);
+    filePrint = set_out_file (params.szFileName, &fOut);
 
-        s = (float **)malloc(SIGNALS_NUM * sizeof(float *));
-        for(i = 0; i < SIGNALS_NUM; i++) {
-            s[i] = (float *)malloc(SIGNAL_LENGTH * sizeof(float));
-        }
-
-        printf("Memory Allocated\n");
-		if (params.szFileName != NULL) {
-			filePrint = fopen (params.szFileName, "w+");
-//        if (fOut != 0) {
-//            filePrint = fOut;
-            printf("Printing to out file\n");
-            //fprintf(fOut, "Printing to out file\n");
-        }
-        else {
-            filePrint = stdout;
-            printf ("Printing to stdout\n");
-        }
-
-        while(retries >= 0) {
-            if((ret_val = rp_get_signals(&s, &sig_num, &sig_len)) >= 0) {
-                /* Signals acquired in s[][]:
-                 * s[0][i] - TODO
-                 * s[1][i] - Channel ADC1 raw signal
-                 * s[2][i] - Channel ADC2 raw signal
-                 */
-		
-                for(i = 0; i < MIN(params.nSize, sig_len); i++) {
-                    fprintf(filePrint, "%7d, %7d\n", (int)s[1][i], (int)s[2][i]);
-                    //printf("%7d %7d\n", (int)s[1][i], (int)s[2][i]);
-                }
-                break;
-            }
-
-            if(retries-- == 0) {
-                fprintf(stderr, "Signal scquisition was not triggered!\n");
-                break;
-            }
-            usleep(1000);
-        }
-        if (fOut != 0)
-            fclose(fOut);
-/*    }*/
+    read_signals (pfBuffer, filePrint, &params);
+    if (fOut != 0)
+        fclose(fOut);
 
     if(rp_app_exit() < 0) {
         fprintf(stderr, "rp_app_exit() failed!\n");
         return -1;
     }
 
+    free_buffer(pfBuffer, SIGNALS_NUM);
 	if (params.szFileName != NULL)
 		free (params.szFileName);
     return 0;
