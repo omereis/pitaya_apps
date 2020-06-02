@@ -22,6 +22,8 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <string.h>
+#include <time.h>
+#include <math.h>
 #include <sys/param.h>
 
 #include "main_osc.h"
@@ -65,9 +67,13 @@ struct rp_params {
     int idxDecimation;
     int nSize;
     char *szFileName;
+    int sizeStart;
+    int sizeEnd;
+    int sizeDelta;
 };
 /** Program name */
 const char *g_argv0 = NULL;
+double dClocksPerSec;
 
 /** Minimal number of command line arguments */
 #define MINARGS 2
@@ -83,6 +89,49 @@ float t_params[PARAMS_NUM] = { 0, 1e6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 /** Decimation translation table */
 static int g_dec[DEC_MAX] = { 1,  8,  64,  1024,  8192,  65536 };
 
+/*****************************************************************************/
+/*****************************************************************************/
+//#define	SWAP (X, Y)	(X = X + Y; Y = X - Y ; X = X - Y;)
+void swap (double *pd1, double *pd2)
+{
+	double d = *pd1;
+	*pd1 = *pd2;
+	*pd2 = d;
+}
+/*****************************************************************************/
+int partition (double adValues[], int nLow, int nHigh)
+// source: https://www.geeksforgeeks.org/quick-sort/
+{
+	double dPivot = adValues[nHigh];
+	int j, i = nLow - 1;
+
+	for (j=nLow ; j < nHigh ; j++) {
+		if (adValues[j] < dPivot) {
+			i++;
+			swap (&adValues[j], &adValues[i]);
+/*
+			dSwap = adValues[j];
+			adValues[j] = adValues[i];
+			adValues[i] = dSwap;
+*/
+		}
+	}
+	swap (&adValues[i+1], &adValues[nHigh]);
+	return (i + 1);
+}
+/*****************************************************************************/
+void quicksort (double adValues[], int nLow, int nHigh)
+{
+	int idxPartition;
+
+ 	if (nLow < nHigh) {
+		idxPartition = partition (adValues, nLow, nHigh);
+
+		quicksort(adValues, nLow, idxPartition - 1);
+		quicksort(adValues, idxPartition, nHigh);
+
+	}
+}
 /*****************************************************************************/
 char *strlwr (char *sz) {
 	int n;
@@ -119,7 +168,8 @@ void usage() {
 
     const char *format =
             "\n"
-            "Usage: %s [OPTION]... SIZE <DEC>\n"
+            //"Usage: %s [OPTION]... SIZE <DEC>\n"
+            "Usage: %s [OPTION]... <start-size> <end-size> <delta>\n"
             "\n"
             //"  --equalization  -e    Use equalization filter in FPGA (default: disabled).\n"
             //"  --shaping       -s    Use shaping filter in FPGA (default: disabled).\n"
@@ -129,8 +179,13 @@ void usage() {
             "  --version       -v    Print version info.\n"
             "  --help          -h    Print this message.\n"
             "\n"
-            "    SIZE                Number of samples to acquire [0 - %u].\n"
-            "    DEC                 Decimation [%u,%u,%u,%u,%u,%u] (default: 1).\n"
+            "    start-size - initial buffer length (# of floats)\n"
+            "    end-size   - final buffer length\n"
+            "                 default: start-size\n"
+            "    delta      - increase size\n"
+            "                 default: 50\n"
+            //"    SIZE                Number of samples to acquire [0 - %u].\n"
+            //"    DEC                 Decimation [%u,%u,%u,%u,%u,%u] (default: 1).\n"
             "\n";
 
     fprintf( stderr, format, g_argv0, SIGNAL_LENGTH,
@@ -275,20 +330,30 @@ int GetCommandLineParam (int argc, char* argv[], struct rp_params *prp_params) {
             exit(EXIT_FAILURE);
         }
     }
-    prp_params->nSize = get_acquisition_size(argc, argv, optind, prp_params);
-    prp_params->idxDecimation = get_decimation_index (argc, argv, optind + 1);
+    prp_params->sizeStart = get_acquisition_size(argc, argv, optind, prp_params);
+    if (argc > optind)
+        prp_params->sizeStart = atoi(argv[optind]);
+    else
+        prp_params->sizeStart = 100;
+    if (argc > optind + 1)
+        prp_params->sizeEnd = atoi(argv[optind + 1]);
+    else
+        prp_params->sizeEnd = prp_params->sizeStart;
+    if (argc > optind + 2)
+        prp_params->sizeDelta = atoi(argv[optind + 2]);
+    else
+        prp_params->sizeDelta = 50;
     return (0);
 }
 /*****************************************************************************/
 void print_params(struct rp_params *prp_params) {
-    printf ("nEqual=%d\n", prp_params->nEqual);
-    printf ("nShaping = %d\n", prp_params->nShaping);
     printf ("nGainCh1 = %d\n", prp_params->nGainCh1);
     printf ("nGainCh2 = %d\n", prp_params->nGainCh2);
     printf ("nVersion = %d\n", prp_params->nVersion);
     printf ("nHelp = %d\n", prp_params->nHelp);
-    printf ("idxDecimation = %d\n", prp_params->idxDecimation);
-    printf ("nSize = %d\n", prp_params->nSize);
+    printf("Start size: %d\n", prp_params->sizeStart);
+    printf("End size: %d\n", prp_params->sizeEnd);
+    printf("Delta size: %d\n", prp_params->sizeDelta);
 	if (prp_params->szFileName != NULL)
 		printf ("File Name = '%s'\n", prp_params->szFileName);
 	else
@@ -346,6 +411,7 @@ int read_signals (float **pfBuffer, FILE *filePrint, struct rp_params *pParams)
     int sig_num, sig_len, i, ret_val;
     int retries = 150000;
 
+    ret_val = i = 0;
     while(retries >= 0) {
         if((ret_val = rp_get_signals(&pfBuffer, &sig_num, &sig_len)) >= 0) {
                 /* Signals acquired in s[][]:
@@ -354,12 +420,14 @@ int read_signals (float **pfBuffer, FILE *filePrint, struct rp_params *pParams)
                  * s[2][i] - Channel ADC2 raw signal
                  */
 		
+/*
             for(i = 0; i < MIN(pParams->nSize, sig_len); i++) {
                 //fprintf(filePrint, "%7d, %7d\n", (int)pfBuffer[1][i], (int)pfBuffer[2][i]);
                 //fprintf(filePrint, "%g, %g\n", pfBuffer[1][i], pfBuffer[2][i]);
                 fprintf(filePrint, "%g\n", pfBuffer[1][i]);
                 //printf("%7d %7d\n", (int)s[1][i], (int)s[2][i]);
             }
+*/
             break;
         }
 
@@ -372,13 +440,198 @@ int read_signals (float **pfBuffer, FILE *filePrint, struct rp_params *pParams)
     return (1);
 }
 /*****************************************************************************/
+void print_vector (double ad[], int nSize)
+{
+	int n;
+
+	for (n=0 ; n < nSize ; n++)
+		printf("%g\n", ad[n]);
+}
+/*****************************************************************************/
+double clock_to_time (clock_t clkTicks)
+{
+    double dTime;
+
+    dTime = ((double) clkTicks) / dClocksPerSec;
+    return (dTime);
+}
+/*****************************************************************************/
+void shuffle (double *arr, int nSize)
+/*  modern version of the Fisher–Yates shuffle algorithm
+    pseudo code source: https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
+*/
+{
+    int n, j;
+    double d;
+    float rTmp;
+
+	for (n=nSize-1 ; n > 1 ; n--) {
+		d = (((double) rand()) / ((double) RAND_MAX)) * ((double) n);
+		j = (int) (d + 0.5);
+		rTmp = arr[n];
+		arr[n] = arr[j];
+		arr[j] = rTmp;
+	}
+}
+/*****************************************************************************/
+double vector_sum (double *adVector, int nSize)
+{
+    int n;
+    double fSum = 0;
+
+    for (n=0, fSum=0 ; n < nSize ; n++)
+        fSum += adVector[n];
+    return (fSum);
+}
+/*****************************************************************************/
+double vector_mean (double *pSignal, int nSize)
+{
+    double dMean;
+
+    if (nSize > 0)
+        dMean = vector_sum (pSignal, nSize) / ((double) nSize);
+    else
+        dMean = 0;
+    return (dMean);
+}
+/*****************************************************************************/
+void perform_n (double *pSignal, int nSize)
+{
+    double dVariance, dMean;
+    int n;
+
+    if (nSize > 0) {
+        dMean = vector_mean (pSignal, nSize);
+        dVariance = 0;
+        for (n=0 ; n < nSize ; n++)
+            dVariance += pow(pSignal[n] - dMean, 2.0);
+        dVariance /= ((double) nSize);
+    }
+}
+/*****************************************************************************/
+void bubble_sort (double *pSignal, int nBufSize)
+/*
+	This procedure uses bubble technique to sort an array pSignal, containing
+	nBufSize elements.
+	It uis used to measure times of O(n^2) algorithm.
+	Source: https://www.geeksforgeeks.org/bubble-sort/
+*/
+{
+	int i, j; 
+
+	for (i = 0; i < nBufSize-1; i++)
+       // Last i elements are already in place
+       for (j = 0; j < nBufSize-i-1; j++)
+           if (pSignal[j] > pSignal[j+1])
+              swap(&pSignal[j], &pSignal[j+1]);
+
+}
+/*****************************************************************************/
+double **matrix (int nRows, int nColumns)
+{
+	double **mtx;
+	int n;
+
+	mtx = (double**) calloc (nRows, sizeof(mtx[0]));
+	for (n=0 ; n < nColumns ; n++)
+		mtx[n] = (double*) calloc (nColumns, sizeof(mtx[0][0]));
+	return (mtx);
+}
+/*****************************************************************************/
+void free_matrix (double **mtx, int nRows, int nColumns)
+{
+	int n;
+
+	for (n=nColumns - 1 ; n >= 0 ; n--)
+		free (mtx[n]);
+	free(mtx);
+}
+/*****************************************************************************/
+double **matrix_multiply (double **mtxLeft, double **mtxRight, int nLeftRows, int nLeftCols, int nRightCols)
+{
+	double **mtxResult;
+	int r, c, n;
+	double d;
+
+	mtxResult = matrix (nLeftRows, nRightCols);
+	for (r=0 ; r < nLeftRows ; r++) {
+		for (c=0 ; c < nRightCols ; c++) {
+			d = 0;
+			for (n=0 ; n < nLeftCols ; n++)
+				d += mtxLeft[r][n] * mtxRight[n][c];
+			mtxResult[r][c] = d;
+		}
+	}
+	return (mtxResult);
+}
+/*****************************************************************************/
+double **matrix_addition (double **mtxLeft, double **mtxRight, int nRows, int nCols)
+{
+	double **mtxResult;
+	int r, c;
+
+	mtxResult = matrix (nRows, nCols);
+	for (r=0 ; r < nRows ; r++)
+		for (c=0 ; c < nCols ; c++)
+			mtxResult[r][c] = mtxLeft[r][c] - mtxRight[r][c];
+	return (mtxResult);
+}
+/*****************************************************************************/
+void slow_proc (double *pSignal, int nLength)
+{
+	double **mtxLeft, **mtxRight, **mtxResult;
+	int n;
+
+	mtxLeft = matrix (nLength, nLength);
+	mtxRight = matrix (nLength, nLength);
+	for (n=0 ; n < nLength ; n++)
+		for (n=0 ; n < nLength ; n++)
+			mtxLeft[n][n] = mtxRight[n][n] = pSignal[n];
+
+	mtxResult = matrix_addition (mtxLeft, mtxRight, nLength, nLength);
+	free_matrix (mtxResult, nLength, nLength);
+	free_matrix (mtxLeft, nLength, nLength);
+	free_matrix (mtxRight, nLength, nLength);
+}
+/*****************************************************************************/
+void slow_sort (double *pSignal, int nLow, int nHigh)
+/*
+	Source: https://coderscat.com/3-most-slow-sorting-algorithms
+*/
+{
+	int m;
+
+	if (nLow >= nHigh)
+		return;
+	m = (int) (nLow + nHigh) / 2;
+	slow_sort (pSignal, nLow, m);
+	slow_sort (pSignal, m + 1, nHigh);
+	if (pSignal[nHigh] < pSignal[m])
+		swap (&pSignal[m], &pSignal[nHigh]);
+	slow_sort (pSignal, nLow, nHigh - 1);
+}	
+/*****************************************************************************/
 /** Acquire utility main */
 int main(int argc, char *argv[])
 {
     g_argv0 = argv[0];
     FILE *fOut = NULL, *filePrint;
     struct rp_params params;
+	int n;
 
+	double ad[10];
+
+	for (n=0 ; n < 10 ; n++)
+		ad[n] = 100 + n;
+
+	shuffle (ad, 10);
+	printf("after shuffle\n");
+	print_vector (ad, 10);
+	quicksort (ad, 0, 9);
+	printf("\nafter quicksort\n");
+	print_vector (ad, 10);
+	//exit(0);
+    dClocksPerSec = (double) CLOCKS_PER_SEC;
     if (GetCommandLineParam (argc, argv, &params) < 0)
         exit(EXIT_FAILURE);
     else
@@ -399,11 +652,45 @@ int main(int argc, char *argv[])
     }
 
     float **pfBuffer;
+    int nBufSize;
+    double *pSignal;
+    clock_t cStart, cRead, cN, cNlogN, cn2, c0;
 
     pfBuffer = create_buffer(SIGNAL_LENGTH, SIGNALS_NUM);
     filePrint = set_out_file (params.szFileName, &fOut);
 
-    read_signals (pfBuffer, filePrint, &params);
+    FILE* fileDebug = fopen ("times.csv", "w+");
+    fprintf(fileDebug, "n, Reading,O(n),O(n*log*n),O(n^2),Total\n");
+    printf ("Times file created\n");
+
+    for (nBufSize=params.sizeStart ; nBufSize <= params.sizeEnd ; nBufSize += params.sizeDelta) {
+        cStart = clock ();
+        pSignal = calloc (nBufSize, sizeof (pSignal[0]));
+        read_signals (pfBuffer, filePrint, &params);
+        for (n=0 ; n < nBufSize ; n++)
+            pSignal[n] = (double) pfBuffer[0][n];
+		//printf("Buffer read size: %d\n", nBufSize);
+        cRead = clock() - cStart ;
+		c0 = clock();
+        perform_n (pSignal, nBufSize);
+		//printf("calculation O(n) performed\n");
+        cN = clock() - c0;
+		quicksort (pSignal, 0, nBufSize - 1);
+		cNlogN = clock() - c0;
+		c0 = clock();
+		bubble_sort (pSignal, nBufSize);
+		//slow_proc (pSignal, nBufSize);
+		cn2 = clock() - c0;
+        free(pSignal);
+		printf ("Completed %4d buffer size\n", nBufSize);
+        fprintf(fileDebug, "%d,%g,%g,%g,%g,%g\n", nBufSize, clock_to_time (cRead),
+				clock_to_time (cN), clock_to_time (cNlogN),
+				clock_to_time (cn2), clock_to_time (clock() - cStart));
+    }
+	printf("\n");
+    fclose (fileDebug);
+    printf ("Sample loop eneded\n");
+    //exit(0);
     if (fOut != 0)
         fclose(fOut);
 
