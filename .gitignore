@@ -30,3 +30,5 @@ fast_ai
 *.bak
 *.xls*
 read_test
+mytst
+test
