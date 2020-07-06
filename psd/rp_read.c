@@ -17,7 +17,7 @@ int main(int argc, char **argv){
 	}
 
         /*LOOB BACK FROM OUTPUT 2 - ONLY FOR TESTING*/
-	uint32_t buff_size = 5000;//12500;//16384;//8192;//16384;
+	uint32_t buff_size = 12500;//16384;//8192;//16384;
 	float *buff = (float *)malloc(buff_size * sizeof(float));
 	float *big_buff = (float*) calloc(2 * buff_size, sizeof(big_buff[0]));
 
@@ -27,7 +27,15 @@ int main(int argc, char **argv){
 	if (rp_AcqSetSamplingRate(RP_SMP_125M) != RP_OK)
 		printf ("Setting sampleing rate error\n");
 	rp_AcqSetTriggerLevel(RP_CH_1, 10e-3); //Trig level is set in Volts while in SCPI
-	rp_AcqSetTriggerDelay(5000);
+//	rp_AcqSetTriggerDelay(5000);
+	int nDelay;
+	if (argc >= 2)
+		nDelay = atoi(argv[1]);
+	else
+		nDelay = 1000;
+	//rp_AcqSetTriggerDelay(1000);
+	rp_AcqSetTriggerDelay(nDelay);
+	printf ("\nDelay: %d\n", nDelay);
 
         // there is an option to select coupling when using SIGNALlab 250-12
         // rp_AcqSetAC_DC(RP_CH_1, RP_AC); // enables AC coupling on channel 1
