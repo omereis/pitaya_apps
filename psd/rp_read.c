@@ -7,8 +7,17 @@
 #include <string.h>
 #include <time.h>
 #include <ctype.h>
+#include <math.h>
 
 #include "redpitaya/rp.h"
+
+#ifndef max
+#define max(a,b)            (((a) > (b)) ? (a) : (b))
+#endif
+
+#ifndef min
+#define min(a,b)            (((a) < (b)) ? (a) : (b))
+#endif
 
 //-----------------------------------------------------------------------------
 void read_input (float *buff, uint32_t buff_size, int *pnWaits);
@@ -73,44 +82,63 @@ int main(int argc, char **argv)
 	read_input (buff, buff_size, &nWaits);
 	memcpy (big_buff, buff, sizeof(buff[0]) * buff_size);
 	printf ("Read once\n");
-//	rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE);
-	read_input (buff, buff_size, &nWaits);
-	printf ("Read twice\n");
-	memcpy (&big_buff[buff_size], buff, sizeof(buff[0]) * buff_size);
-/*
-	rp_acq_trig_state_t state = RP_TRIG_STATE_TRIGGERED;
-	time(&tStart);
-	fTrigger = fTimeLimit = false;
-	**while(1){**
-	while((!fTrigger) && (!fTimeLimit)){
-		rp_AcqGetTriggerState(&state);
-		if(state == RP_TRIG_STATE_TRIGGERED){
-			fTrigger = true;
-		}
-		usleep(1);
-		time(&tNow);
-		if (difftime (tNow, tStart) >= 15)
-			fTimeLimit = true;
-		nWaits++;
-	}
+	float fMin=+1e300, fSum, fAvg, fPrev, rDelta;
+	int n, nStart, nEnd;
+	for (n=0 ; n < buff_size ; n++)
+		fMin = min (fMin, buff[n]);
+	printf ("Buffer's minimum: %f\n", fMin);
+	for (int n=0 ; n < buff_size ; n++)
+		buff[n] = buff[n] - fMin;
 
-	if (fTrigger)
-		printf("Trigger Occurred\n");
-	if (fTimeLimit)
-		printf ("Time Limit Reached\n");
-	rp_AcqGetOldestDataV(RP_CH_1, &buff_size, buff);
+	fMin=+1e300;
+	for (n=0 ; n < buff_size ; n++)
+		fMin = min (fMin, buff[n]);
 	memcpy (big_buff, buff, sizeof(buff[0]) * buff_size);
-*/
+	printf ("Buffer's minimum: %f\n", fMin);
+	fSum = buff[1];
+//	FILE *file = fopen ("av.csv", "w+");
+	for (n=1, nStart=-1 ; (n < buff_size) && (nStart < 0) ; n++) {
+		fSum += buff[n];
+		fAvg = fSum / (float) n;
+		if (n >= 1000) {
+			rDelta = 100.0 * (fabs(fAvg - fPrev) / fAvg);
+//			fprintf (file, "%g,%g\n", fAvg, rDelta);
+//			if (rDelta > 0.2)
+			if (100.0 * (fabs(fAvg - fPrev) / fAvg) > 0.2)
+				nStart = n;
+		}
+		fPrev = fAvg;
+	}
+//	fclose(file);
+//	file = fopen ("av1.csv", "w+");
+	fSum = 0;
+	if (nStart > 0) {
+		nStart -= 2;
+		for (n=nStart, nEnd=-1 ; (n < buff_size) && (nEnd < 0) ; n++) {
+			fPrev = fSum;
+			fSum += buff[n];
+			if (n - nStart > 100) {
+				if ((n % 10) == 0) {
+					rDelta = 100 * fabs (fSum - fPrev) / (fPrev);
+//					fprintf (file, "%g,%g\n", fSum,rDelta);
+					if (rDelta < 0.005)
+						nEnd = n;
+				}
+			}
+		}
+	}
+//	fclose(file);
+	printf ("Found start at index %d\n", nStart);
+	printf ("Found end at index %d\n", nEnd);
+	printf ("Average: %g\n", fAvg);
+
+
 	FILE *fout;
 	int i;
 	fout = fopen (szFile, "w+");
-//	fout = fopen ("out.csv", "w+");
-	for(i = 0; i < buff_size * 2 ; i++){
+	for(i = 0; i < buff_size; i++){
 		fprintf(fout, "%f\n", big_buff[i]);
 	}
-//	for(i = 0; i < buff_size; i++){
-//		fprintf(fout, "%f\n", buff[i]);
-//	}
 	fclose (fout);
 	printf ("Read once, after %d polls\n", nWaits);
 /* end of 1st read */
