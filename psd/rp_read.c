@@ -6,18 +6,37 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include <ctype.h>
 
 #include "redpitaya/rp.h"
 
-int main(int argc, char **argv){
+//-----------------------------------------------------------------------------
+void set_params_defaults (float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile);
+void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile);
+void print_usage();
+void print_params (float rTrigger, int nSamples, int nDelay, char *szFile);
+//-----------------------------------------------------------------------------
+int main(int argc, char **argv)
+{
+	float rTrigger;
+	int nSamples, nDelay;
+	short fHelp;
+	char *szFile;
 
+	get_options (argc, argv, &rTrigger, &nSamples, &nDelay, &fHelp, &szFile);
+	if (fHelp) {
+		print_usage();
+		exit(0);
+	}
+
+	print_params (rTrigger, nSamples, nDelay, szFile);
         /* Print error, if rp_Init() function failed */
 	if(rp_Init() != RP_OK){
 		fprintf(stderr, "Rp api init failed!\n");
 	}
 
         /*LOOB BACK FROM OUTPUT 2 - ONLY FOR TESTING*/
-	uint32_t buff_size = 12500;//16384;//8192;//16384;
+	uint32_t buff_size = nSamples;//6250;//12500;//16384;//8192;//16384;
 	float *buff = (float *)malloc(buff_size * sizeof(float));
 	float *big_buff = (float*) calloc(2 * buff_size, sizeof(big_buff[0]));
 
@@ -26,16 +45,19 @@ int main(int argc, char **argv){
 		printf("Error setting dec9imation\n");;
 	if (rp_AcqSetSamplingRate(RP_SMP_125M) != RP_OK)
 		printf ("Setting sampleing rate error\n");
-	rp_AcqSetTriggerLevel(RP_CH_1, 10e-3); //Trig level is set in Volts while in SCPI
+//	rp_AcqSetTriggerLevel(RP_CH_1, 10e-3); //Trig level is set in Volts while in SCPI
+	rp_AcqSetTriggerLevel(RP_CH_1, rTrigger); //Trig level is set in Volts while in SCPI
 //	rp_AcqSetTriggerDelay(5000);
-	int nDelay;
+
+/*
 	if (argc >= 2)
 		nDelay = atoi(argv[1]);
 	else
 		nDelay = 1000;
+*/
 	//rp_AcqSetTriggerDelay(1000);
 	rp_AcqSetTriggerDelay(nDelay);
-	printf ("\nDelay: %d\n", nDelay);
+//	printf ("\nDelay: %d\n", nDelay);
 
         // there is an option to select coupling when using SIGNALlab 250-12
         // rp_AcqSetAC_DC(RP_CH_1, RP_AC); // enables AC coupling on channel 1
@@ -81,7 +103,8 @@ int main(int argc, char **argv){
 	memcpy (big_buff, buff, sizeof(buff[0]) * buff_size);
 	FILE *fout;
 	int i;
-	fout = fopen ("out.csv", "w+");
+	fout = fopen (szFile, "w+");
+//	fout = fopen ("out.csv", "w+");
 	for(i = 0; i < buff_size; i++){
 		fprintf(fout, "%f\n", buff[i]);
 	}
@@ -95,12 +118,13 @@ int main(int argc, char **argv){
 	return 0;
 }
 //-----------------------------------------------------------------------------
-void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, short *pfHelp, char **pszFile)
+void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile)
 {
 	int c;
-	*prTrigger = 0, *pnSamples = 0, *pfHelp = 0, *pszFile = NULL;
 
-	while ((c = getopt (argc, argv, "ht:n:f:")) != -1)
+	set_params_defaults (prTrigger, pnSamples, pnDelay, pfHelp, pszFile);
+
+	while ((c = getopt (argc, argv, "ht:n:f:d:")) != -1)
 		switch (c) {
 			case 'H':
 			case 'h':
@@ -118,6 +142,10 @@ void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, short
 			case 'F':
 				*pszFile = optarg;
 				break;
+			case 'd':
+			case 'D':
+				*pnDelay = atoi(optarg);
+				break;
 			default:
 				printf("Unfamiliar option: %c\n", c);
 				*pfHelp = 1;
@@ -125,15 +153,35 @@ void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, short
 		}
 } 
 //-----------------------------------------------------------------------------
+void set_params_defaults (float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile)
+{
+	*prTrigger = 10e-3;
+	*pnSamples = 12500;
+	*pnDelay = 1250;
+	*pfHelp = 0;
+	*pszFile = "out.csv";
+}
+//-----------------------------------------------------------------------------
 void print_usage()
 {
 	char *szMessage = "Red Pitaya RF input\n"
 					"Synopsis:\n"
-					"./read_signal -t <trigger [volts]> -n <# of samples> -f <output file name>\n"
+					"./rp_read -t <trigger [volts]> -n <# of samples> -f <output file name> -d <delay items>\n"
 					"  Defaults:\n"
 					"    Trigger: 10mV:\n"
 					"    Samples: 10,000\n"
-					"    File: out.csv\n";
+					"    Delay  : 1250 data points\n"
+					"    File   : out.csv\n";
 	printf ("%s\n", szMessage);
+}
+//-----------------------------------------------------------------------------
+void print_params (float rTrigger, int nSamples, int nDelay, char *szFile)
+{
+	char *szMessage = "Red Pitaya RF input\n"
+					"    Trigger: %gmV:\n"
+					"    Samples: %d points\n"
+					"    Delay  : %d data points\n"
+					"    File   : %s\n";
+	printf (szMessage, rTrigger, nSamples, nDelay, szFile);
 }
 //-----------------------------------------------------------------------------
