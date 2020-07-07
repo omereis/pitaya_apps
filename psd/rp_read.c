@@ -11,6 +11,7 @@
 #include "redpitaya/rp.h"
 
 //-----------------------------------------------------------------------------
+void read_input (float *buff, uint32_t buff_size, int *pnWaits);
 void set_params_defaults (float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile);
 void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile);
 void print_usage();
@@ -49,15 +50,7 @@ int main(int argc, char **argv)
 	rp_AcqSetTriggerLevel(RP_CH_1, rTrigger); //Trig level is set in Volts while in SCPI
 //	rp_AcqSetTriggerDelay(5000);
 
-/*
-	if (argc >= 2)
-		nDelay = atoi(argv[1]);
-	else
-		nDelay = 1000;
-*/
-	//rp_AcqSetTriggerDelay(1000);
 	rp_AcqSetTriggerDelay(nDelay);
-//	printf ("\nDelay: %d\n", nDelay);
 
         // there is an option to select coupling when using SIGNALlab 250-12
         // rp_AcqSetAC_DC(RP_CH_1, RP_AC); // enables AC coupling on channel 1
@@ -72,26 +65,32 @@ int main(int argc, char **argv)
         /*length and smaling rate*/
 
 	sleep(1);
-	rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE);
-	rp_acq_trig_state_t state = RP_TRIG_STATE_TRIGGERED;
-	int nWaits=1;
-	time_t tStart, tNow;
-	bool fTrigger, fTimeLimit;
+	int nWaits;
+//	time_t tStart, tNow;
+//	bool fTrigger, fTimeLimit;
 
+//	rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE);
+	read_input (buff, buff_size, &nWaits);
+	memcpy (big_buff, buff, sizeof(buff[0]) * buff_size);
+	printf ("Read once\n");
+//	rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE);
+	read_input (buff, buff_size, &nWaits);
+	printf ("Read twice\n");
+	memcpy (&big_buff[buff_size], buff, sizeof(buff[0]) * buff_size);
+/*
+	rp_acq_trig_state_t state = RP_TRIG_STATE_TRIGGERED;
 	time(&tStart);
 	fTrigger = fTimeLimit = false;
-	/*while(1){*/
+	**while(1){**
 	while((!fTrigger) && (!fTimeLimit)){
 		rp_AcqGetTriggerState(&state);
 		if(state == RP_TRIG_STATE_TRIGGERED){
 			fTrigger = true;
-			/*break;*/
 		}
 		usleep(1);
 		time(&tNow);
 		if (difftime (tNow, tStart) >= 15)
 			fTimeLimit = true;
-			/*break;*/
 		nWaits++;
 	}
 
@@ -101,13 +100,17 @@ int main(int argc, char **argv)
 		printf ("Time Limit Reached\n");
 	rp_AcqGetOldestDataV(RP_CH_1, &buff_size, buff);
 	memcpy (big_buff, buff, sizeof(buff[0]) * buff_size);
+*/
 	FILE *fout;
 	int i;
 	fout = fopen (szFile, "w+");
 //	fout = fopen ("out.csv", "w+");
-	for(i = 0; i < buff_size; i++){
-		fprintf(fout, "%f\n", buff[i]);
+	for(i = 0; i < buff_size * 2 ; i++){
+		fprintf(fout, "%f\n", big_buff[i]);
 	}
+//	for(i = 0; i < buff_size; i++){
+//		fprintf(fout, "%f\n", buff[i]);
+//	}
 	fclose (fout);
 	printf ("Read once, after %d polls\n", nWaits);
 /* end of 1st read */
@@ -116,6 +119,34 @@ int main(int argc, char **argv)
 	rp_Release();
 
 	return 0;
+}
+//-----------------------------------------------------------------------------
+void read_input (float *buff, uint32_t buff_size, int *pnWaits)
+{
+	*pnWaits=1;
+	time_t tStart, tNow;
+	bool fTrigger, fTimeLimit;
+
+	rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE);
+	rp_acq_trig_state_t state = RP_TRIG_STATE_TRIGGERED;
+	time(&tStart);
+	fTrigger = fTimeLimit = false;
+	while((!fTrigger) && (!fTimeLimit)){
+		rp_AcqGetTriggerState(&state);
+		if(state == RP_TRIG_STATE_TRIGGERED){
+			fTrigger = true;
+		}
+		usleep(1);
+		time(&tNow);
+		if (difftime (tNow, tStart) >= 15)
+			fTimeLimit = true;
+		(*pnWaits)++;
+	}
+	if (fTrigger)
+		printf("Trigger Occurred\n");
+	if (fTimeLimit)
+		printf ("Time Limit Reached\n");
+	rp_AcqGetOldestDataV(RP_CH_1, &buff_size, buff);
 }
 //-----------------------------------------------------------------------------
 void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile)
