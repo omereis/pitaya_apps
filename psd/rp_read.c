@@ -25,6 +25,8 @@ void set_params_defaults (float *prTrigger, int *pnSamples, int *pnDelay, short 
 void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile);
 void print_usage();
 void print_params (float rTrigger, int nSamples, int nDelay, char *szFile);
+void normalize_buff (float *buff, uint32_t buff_size);
+void print_buffer (float *buff, uint32_t buff_size, char *szFile);
 //-----------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
@@ -82,18 +84,22 @@ int main(int argc, char **argv)
 	read_input (buff, buff_size, &nWaits);
 	memcpy (big_buff, buff, sizeof(buff[0]) * buff_size);
 	printf ("Read once\n");
-	float fMin=+1e300, fSum, fAvg, fPrev, rDelta;
-	int n, nStart, nEnd;
+//	float fMin=+1e300, fSum, fAvg, fPrev, rDelta;
+	normalize_buff (buff, buff_size);
+//	int n, nStart, nEnd;
+/*
 	for (n=0 ; n < buff_size ; n++)
 		fMin = min (fMin, buff[n]);
 	printf ("Buffer's minimum: %f\n", fMin);
 	for (int n=0 ; n < buff_size ; n++)
 		buff[n] = buff[n] - fMin;
+*/
+/*
 
 	fMin=+1e300;
 	for (n=0 ; n < buff_size ; n++)
 		fMin = min (fMin, buff[n]);
-	memcpy (big_buff, buff, sizeof(buff[0]) * buff_size);
+//	memcpy (big_buff, buff, sizeof(buff[0]) * buff_size);
 	printf ("Buffer's minimum: %f\n", fMin);
 	fSum = buff[1];
 //	FILE *file = fopen ("av.csv", "w+");
@@ -131,8 +137,10 @@ int main(int argc, char **argv)
 	printf ("Found start at index %d\n", nStart);
 	printf ("Found end at index %d\n", nEnd);
 	printf ("Average: %g\n", fAvg);
+*/
+	print_buffer (buff, buff_size, szFile);
 
-
+/*
 	FILE *fout;
 	int i;
 	fout = fopen (szFile, "w+");
@@ -141,6 +149,7 @@ int main(int argc, char **argv)
 	}
 	fclose (fout);
 	printf ("Read once, after %d polls\n", nWaits);
+*/
 /* end of 1st read */
 
 	free(buff);
@@ -242,5 +251,29 @@ void print_params (float rTrigger, int nSamples, int nDelay, char *szFile)
 					"    Delay  : %d data points\n"
 					"    File   : %s\n";
 	printf (szMessage, rTrigger, nSamples, nDelay, szFile);
+}
+//-----------------------------------------------------------------------------
+void normalize_buff (float *buff, uint32_t buff_size)
+{
+	int n;
+	float fMin = 1e300;
+
+	for (n=0 ; n < buff_size ; n++)
+		fMin = min (fMin, buff[n]);
+	printf ("Buffer's minimum: %f\n", fMin);
+	for (int n=0 ; n < buff_size ; n++)
+		buff[n] = buff[n] - fMin;
+}
+//-----------------------------------------------------------------------------
+void print_buffer (float *buff, uint32_t buff_size, char *szFile)
+{
+	FILE *fout;
+	int n;
+
+	fout = fopen (szFile, "w+");
+	for(n = 0; n < buff_size; n++){
+		fprintf(fout, "%f\n", buff[n]);
+	}
+	fclose (fout);
 }
 //-----------------------------------------------------------------------------
