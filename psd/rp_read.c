@@ -20,48 +20,58 @@
 #endif
 
 //-----------------------------------------------------------------------------
+struct InputParams {
+	short Help;
+	int Samples;
+	float Trigger;
+	int Delay;
+	char *FileName;
+	int Iterations;
+};
+//-----------------------------------------------------------------------------
 void read_input (float *buff, uint32_t buff_size, int *pnWaits);
-void set_params_defaults (float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile);
-void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile);
+void set_params_defaults (struct InputParams *in_params);
+//void set_params_defaults (float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile);
+//void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile);
+void get_options (int argc, char **argv, struct InputParams *in_params);
 void print_usage();
-void print_params (float rTrigger, int nSamples, int nDelay, char *szFile);
+void print_params (struct InputParams *in_params);
+//void print_params (float rTrigger, int nSamples, int nDelay, char *szFile);
+
 void normalize_buff (float *buff, uint32_t buff_size);
 void print_buffer (float *buff, uint32_t buff_size, char *szFile);
 //-----------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
-	float rTrigger;
-	int nSamples, nDelay;
-	short fHelp;
-	char *szFile;
+	struct InputParams in_params;
 
-	get_options (argc, argv, &rTrigger, &nSamples, &nDelay, &fHelp, &szFile);
-	if (fHelp) {
+	get_options (argc, argv, &in_params);
+	if (in_params.Help) {
 		print_usage();
 		exit(0);
 	}
 
-	print_params (rTrigger, nSamples, nDelay, szFile);
+//	print_params (rTrigger, nSamples, nDelay, szFile);
+	print_params (&in_params);
         /* Print error, if rp_Init() function failed */
 	if(rp_Init() != RP_OK){
 		fprintf(stderr, "Rp api init failed!\n");
 	}
 
         /*LOOB BACK FROM OUTPUT 2 - ONLY FOR TESTING*/
-	uint32_t buff_size = nSamples;//6250;//12500;//16384;//8192;//16384;
+	uint32_t buff_size = in_params.Samples;//6250;//12500;//16384;//8192;//16384;
 	float *buff = (float *)malloc(buff_size * sizeof(float));
-//	float *big_buff = (float*) calloc(2 * buff_size, sizeof(big_buff[0]));
 
 	rp_AcqReset();
 	if (rp_AcqSetDecimation(RP_DEC_1/*1*/) != RP_OK)
-		printf("Error setting dec9imation\n");;
+		printf("Error setting decimation\n");;
 	if (rp_AcqSetSamplingRate(RP_SMP_125M) != RP_OK)
 		printf ("Setting sampleing rate error\n");
 //	rp_AcqSetTriggerLevel(RP_CH_1, 10e-3); //Trig level is set in Volts while in SCPI
-	rp_AcqSetTriggerLevel(RP_CH_1, rTrigger); //Trig level is set in Volts while in SCPI
+	rp_AcqSetTriggerLevel(RP_CH_1, in_params.Trigger); //Trig level is set in Volts while in SCPI
 //	rp_AcqSetTriggerDelay(5000);
 
-	rp_AcqSetTriggerDelay(nDelay);
+	rp_AcqSetTriggerDelay(in_params.Delay);
 
         // there is an option to select coupling when using SIGNALlab 250-12
         // rp_AcqSetAC_DC(RP_CH_1, RP_AC); // enables AC coupling on channel 1
@@ -77,8 +87,8 @@ int main(int argc, char **argv)
 
 	sleep(1);
 	int nWaits;
-	double d = ((double) nDelay * -1.0) + 8188.0;
-	int nIterations=10;
+	double d = ((double) in_params.Delay * -1.0) + 8188.0;
+	int nIterations = in_params.Iterations;//5;
 	int j, k, nStart = (int) d;//(nDelay * -124.9) + 8188; // from measurements
 	float dSum=0, *adResults;
 	char sz[1024];
@@ -93,8 +103,9 @@ int main(int argc, char **argv)
 		}
 		adResults[k]= dSum;
 		sprintf (sz, "out%d.csv", k+1);
-//		printf ("%d: %g\n", k, dSum);
-		print_buffer (buff, buff_size, sz);
+//		printf ("%d: %f\n", k, dSum);
+		if (k < 0)
+			print_buffer (buff, buff_size, sz);
 //		printf ("%d times read. Sum: %g\n", k+1, dSum);
 		if (k % 10 == 0)
 			printf ("\r%d iterations...", k);
@@ -105,7 +116,7 @@ int main(int argc, char **argv)
 //	memcpy (big_buff, buff, sizeof(buff[0]) * buff_size);
 //	printf ("Read once\n");
 	print_buffer (adResults, nIterations, "sums.csv");
-	print_buffer (buff, buff_size, szFile);
+	print_buffer (buff, buff_size, in_params.FileName);
 
 /* end of 1st read */
 
@@ -144,71 +155,86 @@ void read_input (float *buff, uint32_t buff_size, int *pnWaits)
 	rp_AcqGetOldestDataV(RP_CH_1, &buff_size, buff);
 }
 //-----------------------------------------------------------------------------
-void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile)
+//void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile)
+//-----------------------------------------------------------------------------
+void get_options (int argc, char **argv, struct InputParams *in_params)
 {
 	int c;
 
-	set_params_defaults (prTrigger, pnSamples, pnDelay, pfHelp, pszFile);
+//	set_params_defaults (prTrigger, pnSamples, pnDelay, pfHelp, pszFile);
+	set_params_defaults (in_params);
+//	memset (in_params, 0, sizeof(*in_params));
 
-	while ((c = getopt (argc, argv, "ht:n:f:d:")) != -1)
+	while ((c = getopt (argc, argv, "ht:n:f:d:i:")) != -1)
 		switch (c) {
+			default:
 			case 'H':
 			case 'h':
-				*pfHelp = 1;
+//				*pfHelp = 1;
+				in_params->Help = 1;
 				return;
 			case 't':
 			case 'T':
-				*prTrigger = atof (optarg);
+//				*prTrigger = atof (optarg);
+				in_params->Trigger = atof (optarg);
 				break;
 			case 'n':
 			case 'N':
-				*pnSamples = atoi (optarg);
+//				*pnSamples = atoi (optarg);
+				in_params->Samples = atoi (optarg);
 				break;
 			case 'f':
 			case 'F':
-				*pszFile = optarg;
+				in_params->FileName = optarg;
+//				*pszFile = optarg;
 				break;
 			case 'd':
 			case 'D':
-				*pnDelay = atoi(optarg);
+				in_params->Delay = atoi(optarg);
+//				*pnDelay = atoi(optarg);
 				break;
-			default:
-				printf("Unfamiliar option: %c\n", c);
-				*pfHelp = 1;
-				return;
+			case 'i':
+			case 'I':
+				in_params->Iterations = atoi(optarg);
+				break;
 		}
 } 
 //-----------------------------------------------------------------------------
-void set_params_defaults (float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile)
+void set_params_defaults (struct InputParams *in_params)
+//void set_params_defaults (float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile)
 {
-	*prTrigger = 10e-3;
-	*pnSamples = 12500;
-	*pnDelay = 1250;
-	*pfHelp = 0;
-	*pszFile = "out.csv";
+	in_params->Trigger = 10e-3;
+	in_params->Samples = 12500;
+	in_params->Delay = 1250;
+	in_params->Help = 0;
+	in_params->FileName = "out.csv";
+	in_params->Iterations = 10;
 }
 //-----------------------------------------------------------------------------
 void print_usage()
 {
 	char *szMessage = "Red Pitaya RF input\n"
 					"Synopsis:\n"
-					"./rp_read -t <trigger [volts]> -n <# of samples> -f <output file name> -d <delay items>\n"
+					"./rp_read -t <trigger [volts]> -n <# of samples> -f <output file name> -d <delay items> -i <# of iterations>\n"
 					"  Defaults:\n"
 					"    Trigger: 10mV:\n"
 					"    Samples: 10,000\n"
 					"    Delay  : 1250 data points\n"
-					"    File   : out.csv\n";
+					"    File   : out.csv\n"
+					"    Iterations: 10\n";
 	printf ("%s\n", szMessage);
 }
 //-----------------------------------------------------------------------------
-void print_params (float rTrigger, int nSamples, int nDelay, char *szFile)
+//void print_params (float rTrigger, int nSamples, int nDelay, char *szFile)
+void print_params (struct InputParams *in_params)
 {
 	char *szMessage = "Red Pitaya RF input\n"
 					"    Trigger: %gmV:\n"
 					"    Samples: %d points\n"
 					"    Delay  : %d data points\n"
-					"    File   : %s\n";
-	printf (szMessage, rTrigger, nSamples, nDelay, szFile);
+					"    File   : %s\n"
+					"    Iterations: %d\n";
+	printf (szMessage, in_params->Trigger, in_params->Samples, in_params->Delay, in_params->FileName, in_params->Iterations);
 }
 //-----------------------------------------------------------------------------
 void normalize_buff (float *buff, uint32_t buff_size)
@@ -218,7 +244,7 @@ void normalize_buff (float *buff, uint32_t buff_size)
 
 	for (n=0 ; n < buff_size ; n++)
 		fMin = min (fMin, buff[n]);
-	printf ("Buffer's minimum: %f\n", fMin);
+//	printf ("Buffer's minimum: %f\n", fMin);
 	for (int n=0 ; n < buff_size ; n++)
 		buff[n] = buff[n] - fMin;
 }
