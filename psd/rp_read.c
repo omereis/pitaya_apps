@@ -90,7 +90,7 @@ int main(int argc, char **argv)
 	double d = ((double) in_params.Delay * -1.0) + 8188.0;
 	int nIterations = in_params.Iterations;//5;
 	int j, k, nStart = (int) d;//(nDelay * -124.9) + 8188; // from measurements
-	float dSum=0, *adResults;
+	float dSum=0, *adResults, dHistMin=0, dHistMax=0;
 	char sz[1024];
 
 	adResults = calloc (nIterations, sizeof (adResults[0]));
@@ -101,18 +101,40 @@ int main(int argc, char **argv)
 		for (j=nStart, dSum=0 ; j < buff_size ; j++) {
 			dSum += buff[j];
 		}
+		if (k == 0)
+			dHistMin = dHistMax = dSum;
+		else {
+			dHistMin = min (dHistMin, dSum);
+			dHistMax = max (dHistMax, dSum);
+		}
 		adResults[k]= dSum;
 		sprintf (sz, "out%d.csv", k+1);
 //		printf ("%d: %f\n", k, dSum);
-		if (k < 0)
-			print_buffer (buff, buff_size, sz);
+//		if (k < 0)
+//			print_buffer (buff, buff_size, sz);
 //		printf ("%d times read. Sum: %g\n", k+1, dSum);
 		if (k % 10 == 0)
 			printf ("\r%d iterations...", k);
 		memset (buff, 0, buff_size * sizeof (buff[0]));
+		if ((k % 100) == 0)
+			printf ("Completed %d iterations\r", k);
 	}
 	printf ("\n");
-
+	int *anHistogram, idx, n;
+	anHistogram = calloc (in_params.Iterations, sizeof (anHistogram[0]));
+	double dBin = (dHistMax - dHistMin) / 1024;
+	for (n=0 ; n < in_params.Iterations ; n++)
+		anHistogram[n] = 0;
+	for (n=0 ; n < in_params.Iterations ; n++) {
+		idx = (int) (adResults[n] / dBin);
+		if (idx < in_params.Iterations)
+			anHistogram[n] = anHistogram[n] + 1;
+	}
+	FILE *fHist = fopen ("hist.csv", "w+");
+	for (n=0 ; n < 1024 ; n++)
+		fprintf (fHist, "%d\n", anHistogram[n]);
+	fclose (fHist);
+	free (anHistogram);
 //	memcpy (big_buff, buff, sizeof(buff[0]) * buff_size);
 //	printf ("Read once\n");
 	print_buffer (adResults, nIterations, "sums.csv");
