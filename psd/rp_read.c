@@ -50,7 +50,7 @@ int main(int argc, char **argv)
         /*LOOB BACK FROM OUTPUT 2 - ONLY FOR TESTING*/
 	uint32_t buff_size = nSamples;//6250;//12500;//16384;//8192;//16384;
 	float *buff = (float *)malloc(buff_size * sizeof(float));
-	float *big_buff = (float*) calloc(2 * buff_size, sizeof(big_buff[0]));
+//	float *big_buff = (float*) calloc(2 * buff_size, sizeof(big_buff[0]));
 
 	rp_AcqReset();
 	if (rp_AcqSetDecimation(RP_DEC_1/*1*/) != RP_OK)
@@ -77,81 +77,39 @@ int main(int argc, char **argv)
 
 	sleep(1);
 	int nWaits;
-//	time_t tStart, tNow;
-//	bool fTrigger, fTimeLimit;
+	double d = ((double) nDelay * -1.0) + 8188.0;
+	int nIterations=10;
+	int j, k, nStart = (int) d;//(nDelay * -124.9) + 8188; // from measurements
+	float dSum=0, *adResults;
+	char sz[1024];
 
-//	rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE);
-	read_input (buff, buff_size, &nWaits);
-	memcpy (big_buff, buff, sizeof(buff[0]) * buff_size);
-	printf ("Read once\n");
-//	float fMin=+1e300, fSum, fAvg, fPrev, rDelta;
-	normalize_buff (buff, buff_size);
-//	int n, nStart, nEnd;
-/*
-	for (n=0 ; n < buff_size ; n++)
-		fMin = min (fMin, buff[n]);
-	printf ("Buffer's minimum: %f\n", fMin);
-	for (int n=0 ; n < buff_size ; n++)
-		buff[n] = buff[n] - fMin;
-*/
-/*
+	adResults = calloc (nIterations, sizeof (adResults[0]));
+	printf("d=%g, nStart=%d, buf_size=%d\n", d, nStart, buff_size);
+	for (k=0 ; k < nIterations ; k++) {
+		read_input (buff, buff_size, &nWaits);
+		normalize_buff (buff, buff_size);
+		for (j=nStart, dSum=0 ; j < buff_size ; j++) {
+			dSum += buff[j];
+		}
+		adResults[k]= dSum;
+		sprintf (sz, "out%d.csv", k+1);
+//		printf ("%d: %g\n", k, dSum);
+		print_buffer (buff, buff_size, sz);
+//		printf ("%d times read. Sum: %g\n", k+1, dSum);
+		if (k % 10 == 0)
+			printf ("\r%d iterations...", k);
+		memset (buff, 0, buff_size * sizeof (buff[0]));
+	}
+	printf ("\n");
 
-	fMin=+1e300;
-	for (n=0 ; n < buff_size ; n++)
-		fMin = min (fMin, buff[n]);
 //	memcpy (big_buff, buff, sizeof(buff[0]) * buff_size);
-	printf ("Buffer's minimum: %f\n", fMin);
-	fSum = buff[1];
-//	FILE *file = fopen ("av.csv", "w+");
-	for (n=1, nStart=-1 ; (n < buff_size) && (nStart < 0) ; n++) {
-		fSum += buff[n];
-		fAvg = fSum / (float) n;
-		if (n >= 1000) {
-			rDelta = 100.0 * (fabs(fAvg - fPrev) / fAvg);
-//			fprintf (file, "%g,%g\n", fAvg, rDelta);
-//			if (rDelta > 0.2)
-			if (100.0 * (fabs(fAvg - fPrev) / fAvg) > 0.2)
-				nStart = n;
-		}
-		fPrev = fAvg;
-	}
-//	fclose(file);
-//	file = fopen ("av1.csv", "w+");
-	fSum = 0;
-	if (nStart > 0) {
-		nStart -= 2;
-		for (n=nStart, nEnd=-1 ; (n < buff_size) && (nEnd < 0) ; n++) {
-			fPrev = fSum;
-			fSum += buff[n];
-			if (n - nStart > 100) {
-				if ((n % 10) == 0) {
-					rDelta = 100 * fabs (fSum - fPrev) / (fPrev);
-//					fprintf (file, "%g,%g\n", fSum,rDelta);
-					if (rDelta < 0.005)
-						nEnd = n;
-				}
-			}
-		}
-	}
-//	fclose(file);
-	printf ("Found start at index %d\n", nStart);
-	printf ("Found end at index %d\n", nEnd);
-	printf ("Average: %g\n", fAvg);
-*/
+//	printf ("Read once\n");
+	print_buffer (adResults, nIterations, "sums.csv");
 	print_buffer (buff, buff_size, szFile);
 
-/*
-	FILE *fout;
-	int i;
-	fout = fopen (szFile, "w+");
-	for(i = 0; i < buff_size; i++){
-		fprintf(fout, "%f\n", big_buff[i]);
-	}
-	fclose (fout);
-	printf ("Read once, after %d polls\n", nWaits);
-*/
 /* end of 1st read */
 
+	free (adResults);
 	free(buff);
 	rp_Release();
 
@@ -179,10 +137,10 @@ void read_input (float *buff, uint32_t buff_size, int *pnWaits)
 			fTimeLimit = true;
 		(*pnWaits)++;
 	}
-	if (fTrigger)
-		printf("Trigger Occurred\n");
-	if (fTimeLimit)
-		printf ("Time Limit Reached\n");
+//	if (fTrigger)
+//		printf("Trigger Occurred\n");
+//	if (fTimeLimit)
+//		printf ("Time Limit Reached\n");
 	rp_AcqGetOldestDataV(RP_CH_1, &buff_size, buff);
 }
 //-----------------------------------------------------------------------------
