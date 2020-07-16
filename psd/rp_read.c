@@ -29,13 +29,14 @@ struct InputParams {
 	int Iterations;
 };
 //-----------------------------------------------------------------------------
-void read_input (float *buff, uint32_t buff_size, int *pnWaits);
+int read_input (float *buff, uint32_t buff_size, int *pnWaits, struct InputParams *in_params);
 void set_params_defaults (struct InputParams *in_params);
 //void set_params_defaults (float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile);
 //void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile);
 void get_options (int argc, char **argv, struct InputParams *in_params);
 void print_usage();
 void print_params (struct InputParams *in_params);
+void print_mote_buffer (float *buff, uint32_t buff_size, char *szFile);
 //void print_params (float rTrigger, int nSamples, int nDelay, char *szFile);
 
 void normalize_buff (float *buff, uint32_t buff_size);
@@ -86,44 +87,94 @@ int main(int argc, char **argv)
         /*length and smaling rate*/
 
 	sleep(1);
-	int nWaits;
+	int nWaits, nValids, fPrint, iBiggest;
 	double d = ((double) in_params.Delay * -1.0) + 8188.0;
-	int nIterations = in_params.Iterations;//5;
-	int j, k, nStart = (int) d;//(nDelay * -124.9) + 8188; // from measurements
-	float dSum=0, *adResults, dHistMin=0, dHistMax=0;
+	float dSum=0;
+//	int nIterations = in_params.Iterations;//5;
+	int j, k, nStart = (int) d;//(nDelay * -124.9) + 8188, fPrint; // from measurements
+	float *adResults, dHistMin=0, dHistMax=0, dSamplesMax, *adMax, dBiggest;
 	char sz[1024];
 
-	adResults = calloc (nIterations, sizeof (adResults[0]));
+	adResults = calloc (in_params.Iterations, sizeof (adResults[0]));
+	adMax = calloc (in_params.Iterations, sizeof (adResults[0]));
 	printf("d=%g, nStart=%d, buf_size=%d\n", d, nStart, buff_size);
-	for (k=0 ; k < nIterations ; k++) {
-		read_input (buff, buff_size, &nWaits);
-		normalize_buff (buff, buff_size);
-		for (j=nStart, dSum=0 ; j < buff_size ; j++) {
-			dSum += buff[j];
+	for (k=0, nValids=0 ; k < in_params.Iterations ; k++) {
+		if (read_input (buff, buff_size, &nWaits, &in_params) > 0) {
+			sprintf (sz, "b%02d.csv", k+1);
+			print_buffer (buff, buff_size, sz);
+			normalize_buff (buff, buff_size);
+			sprintf (sz, "n%02d.csv", k+1);
+			print_buffer (buff, buff_size, sz);
+			for (j=nStart/*, dSum=0*/ ; j < buff_size ; j++) {
+				if (j == 0)
+					dBiggest = dSum = dSamplesMax = buff[0];
+				else {
+					dSum += (double) buff[j];
+					dSamplesMax = max (dSamplesMax, buff[j]);
+					if (dSamplesMax > dBiggest) {
+						dBiggest = dSamplesMax;
+						iBiggest = k;
+					}
+				}
+			}
+			fPrint = false;//dSum > 10e3; .// don't print for now
+			adResults[k]= dSum;
+			adMax[k] = dSamplesMax;
+			nValids++;
+			if (fPrint) {
+				sprintf (sz, "big%d.csv", k+1);
+				print_buffer (buff, buff_size, sz);
+			}
 		}
+//		sprintf (sz, "smpl%d.csv", k+1);
+//		printf ("%d: %f\n", k, dSum);
+//		print_mote_buffer (buff, buff_size, "outs.csv");
+//		if ((k % 500) == 0)
+//			print_buffer (buff, buff_size, sz);
+//		printf ("%d times read. Sum: %g\n", k+1, dSum);
+//		if (k % 10 == 0)
+//			printf ("\r%d iterations...", k);
+		memset (buff, 0, buff_size * sizeof (buff[0]));
+		if ((k % 100) == 0)
+			fprintf (stderr, "Completed %d iterations, Max: %g, Min: %g\r", k, dHistMax, dHistMin);
+	}
+	fprintf (stderr, "===============================\n");
+	printf ("Biggest in index %d\n", iBiggest);
+	fprintf (stderr, "Reading done after %d iterations\n", in_params.Iterations);
+	fprintf (stderr, "===============================\n");
+//	getchar();
+	for (k=0 ; k < nValids/*in_params.Iterations*/ ; k++) {
+		dSum = adResults[k];
+//		fprintf(stderr, "Iteration %d, sum: %g\n", k, dSum);
+/**/
 		if (k == 0)
 			dHistMin = dHistMax = dSum;
 		else {
-			dHistMin = min (dHistMin, dSum);
-			dHistMax = max (dHistMax, dSum);
+			if (dSum < dHistMin) {
+//				printf ("Min at %d\n", k);
+				dHistMin = dSum;
+			}
+			if (dSum > dHistMax) {
+//				printf ("Max at %d\n", k);
+				dHistMax = dSum;
+			}
 		}
-		adResults[k]= dSum;
-		sprintf (sz, "out%d.csv", k+1);
-//		printf ("%d: %f\n", k, dSum);
-//		if (k < 0)
-//			print_buffer (buff, buff_size, sz);
-//		printf ("%d times read. Sum: %g\n", k+1, dSum);
-		if (k % 10 == 0)
-			printf ("\r%d iterations...", k);
-		memset (buff, 0, buff_size * sizeof (buff[0]));
-		if ((k % 100) == 0)
-			printf ("Completed %d iterations\r", k);
+/**/
 	}
 	printf ("\n");
-	int *anHistogram, idx, n;
+	int *anHistogram, idx, n, nSize;
+	fprintf (stderr, "Iterations: %d\n", in_params.Iterations);
+	fprintf (stderr, "Size: %d\n", sizeof (anHistogram[0]));
+	nSize = in_params.Iterations * sizeof (anHistogram[0]);
+	printf ("Allocation size: %d\n", nSize);
 	anHistogram = calloc (in_params.Iterations, sizeof (anHistogram[0]));
-	double dBin = (dHistMax - dHistMin) / 1024;
-	for (n=0 ; n < in_params.Iterations ; n++)
+	printf ("Histogram Memory Allocated\n");
+	double dBin = (dHistMax - dHistMin) / 1024.0;
+	printf ("===============================\n");
+	printf("\nMinimum: %g,\nMaximum: %g\nBin: %g\n", dHistMin, dHistMax, dBin);
+	printf("\%d valid iterations out of %d\n", nValids, in_params.Iterations);
+	printf ("===============================\n");
+	for (n=0 ; n < nValids/*in_params.Iterations*/ ; n++)
 		anHistogram[n] = 0;
 	for (n=0 ; n < in_params.Iterations ; n++) {
 		idx = (int) (adResults[n] / dBin);
@@ -137,7 +188,8 @@ int main(int argc, char **argv)
 	free (anHistogram);
 //	memcpy (big_buff, buff, sizeof(buff[0]) * buff_size);
 //	printf ("Read once\n");
-	print_buffer (adResults, nIterations, "sums.csv");
+	print_buffer (adResults, in_params.Iterations, "sums.csv");
+	print_buffer (adMax, in_params.Iterations, "smpmx.csv");
 	print_buffer (buff, buff_size, in_params.FileName);
 
 /* end of 1st read */
@@ -148,12 +200,35 @@ int main(int argc, char **argv)
 
 	return 0;
 }
+int nDebug=1;
 //-----------------------------------------------------------------------------
-void read_input (float *buff, uint32_t buff_size, int *pnWaits)
+int read_input (float *buff, uint32_t buff_size, int *pnWaits, struct InputParams *in_params)
 {
 	*pnWaits=1;
 	time_t tStart, tNow;
 	bool fTrigger, fTimeLimit;
+
+//	fprintf (stderr, "\nread_input #%d\n", nDebug);
+
+//	rp_AcqReset ();
+
+//	fprintf (stderr, "Reset %d times\n", nDebug);
+
+/*
+*/
+	if (rp_AcqSetDecimation(RP_DEC_1) != RP_OK)
+		printf("Error setting decimation\n");;
+//	fprintf (stderr, "Decimationset %d times\n", nDebug);
+	if (rp_AcqSetSamplingRate(RP_SMP_125M) != RP_OK)
+		printf ("Setting sampleing rate error\n");
+
+	rp_AcqSetTriggerLevel(RP_CH_1, in_params->Trigger); //Trig level is set in Volts while in SCPI
+
+	rp_AcqSetTriggerDelay(in_params->Delay);
+
+	rp_AcqStart ();
+
+//	fprintf (stderr, "starting #%d\n", nDebug);
 
 	rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE);
 	rp_acq_trig_state_t state = RP_TRIG_STATE_TRIGGERED;
@@ -172,9 +247,17 @@ void read_input (float *buff, uint32_t buff_size, int *pnWaits)
 	}
 //	if (fTrigger)
 //		printf("Trigger Occurred\n");
-//	if (fTimeLimit)
-//		printf ("Time Limit Reached\n");
+	if (fTimeLimit)
+		printf ("Time Limit Reached\n");
 	rp_AcqGetOldestDataV(RP_CH_1, &buff_size, buff);
+//	fprintf (stderr, "read data\n");
+	rp_AcqStop ();
+//	fprintf (stderr, "Stop #%d\n", nDebug);
+	nDebug++;
+	if (fTimeLimit)
+		return (0);
+	else
+		return (1);
 }
 //-----------------------------------------------------------------------------
 //void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile)
@@ -277,6 +360,18 @@ void print_buffer (float *buff, uint32_t buff_size, char *szFile)
 	int n;
 
 	fout = fopen (szFile, "w+");
+	for(n = 0; n < buff_size; n++){
+		fprintf(fout, "%f\n", buff[n]);
+	}
+	fclose (fout);
+}
+//-----------------------------------------------------------------------------
+void print_mote_buffer (float *buff, uint32_t buff_size, char *szFile)
+{
+	FILE *fout;
+	int n;
+
+	fout = fopen (szFile, "a+");
 	for(n = 0; n < buff_size; n++){
 		fprintf(fout, "%f\n", buff[n]);
 	}
