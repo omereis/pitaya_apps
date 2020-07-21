@@ -27,6 +27,7 @@ struct InputParams {
 	int Delay;
 	char *FileName;
 	int Iterations;
+	short Print;
 };
 //-----------------------------------------------------------------------------
 int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct InputParams *in_params);
@@ -100,7 +101,6 @@ int main(int argc, char **argv)
 //	int nIterations = in_params.Iterations;//5;
 	int j, k, nStart = (int) d;//(nDelay * -124.9) + 8188, fPrint; // from measurements
 	float *adResults, dHistMin=0, dHistMax=0, *adMax, dSamplesMax, dBiggest;
-	char sz[1024];
 
 	adResults = calloc (in_params.Iterations, sizeof (adResults[0]));
 	adMax = calloc (in_params.Iterations, sizeof (adResults[0]));
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
 	for (k=0, nValids=0 ; k < in_params.Iterations ; k++) {
 		if (read_input_volts (afBuff, buff_size, &nWaits, &in_params) > 0) {
 			normalize_buff_float (afBuff, buff_size);
-			sprintf (sz, "n%02d.csv", k+1);
+			//sprintf (sz, "n%02d.csv", k+1);
 //			print_buffer_volts (afBuff, buff_size, sz);
 
 			for (j=nStart ; j < buff_size ; j++) {
@@ -129,10 +129,11 @@ int main(int argc, char **argv)
 			adResults[k]= dSum;
 			adMax[k] = dSamplesMax;
 			nValids++;
-//			if (fPrint) {
-//				sprintf (sz, "big%d.csv", k+1);
-//				print_buffer (buff, buff_size, sz);
-//			}
+			if (in_params.Print) {
+				char sz[1024];
+				sprintf (sz, "signal%d.csv", k+1);
+				print_buffer_volts (afBuff, buff_size, sz);
+			}
 /**/
 		}
 		memset (afBuff, 0, buff_size * sizeof (buff[0]));
@@ -268,33 +269,32 @@ void get_options (int argc, char **argv, struct InputParams *in_params)
 	set_params_defaults (in_params);
 //	memset (in_params, 0, sizeof(*in_params));
 
-	while ((c = getopt (argc, argv, "ht:n:f:d:i:")) != -1)
+	while ((c = getopt (argc, argv, "hpt:n:f:d:i:")) != -1)
 		switch (c) {
 			default:
 			case 'H':
 			case 'h':
-//				*pfHelp = 1;
 				in_params->Help = 1;
 				return;
+			case 'p':
+			case 'P':
+				in_params->Print = 1;
+				break;
 			case 't':
 			case 'T':
-//				*prTrigger = atof (optarg);
 				in_params->Trigger = atof (optarg);
 				break;
 			case 'n':
 			case 'N':
-//				*pnSamples = atoi (optarg);
 				in_params->Samples = atoi (optarg);
 				break;
 			case 'f':
 			case 'F':
 				in_params->FileName = optarg;
-//				*pszFile = optarg;
 				break;
 			case 'd':
 			case 'D':
 				in_params->Delay = atoi(optarg);
-//				*pnDelay = atoi(optarg);
 				break;
 			case 'i':
 			case 'I':
@@ -312,32 +312,34 @@ void set_params_defaults (struct InputParams *in_params)
 	in_params->Help = 0;
 	in_params->FileName = "out.csv";
 	in_params->Iterations = 10;
+	in_params->Print = 0;
 }
 //-----------------------------------------------------------------------------
 void print_usage()
 {
 	char *szMessage = "Red Pitaya RF input\n"
 					"Synopsis:\n"
-					"./rp_read -t <trigger [volts]> -n <# of samples> -f <output file name> -d <delay items> -i <# of iterations>\n"
+					"./rp_read -t <trigger [volts]> -n <# of samples> -f <output file name> -d <delay items> -i <# of iterations> -p print results\n"
 					"  Defaults:\n"
 					"    Trigger: 10mV:\n"
 					"    Samples: 10,000\n"
 					"    Delay  : 1250 data points\n"
 					"    File   : out.csv\n"
-					"    Iterations: 10\n";
+					"    Iterations: 10\n"
+					"    Print  : 0 (no)\n";
 	printf ("%s\n", szMessage);
 }
 //-----------------------------------------------------------------------------
 //void print_params (float rTrigger, int nSamples, int nDelay, char *szFile)
 void print_params (struct InputParams *in_params)
 {
-	char *szMessage = "Red Pitaya RF input\n"
-					"    Trigger: %gmV:\n"
-					"    Samples: %d points\n"
-					"    Delay  : %d data points\n"
-					"    File   : %s\n"
-					"    Iterations: %d\n";
-	printf (szMessage, in_params->Trigger, in_params->Samples, in_params->Delay, in_params->FileName, in_params->Iterations);
+	printf ("Red Pitaya RF input\n");
+	printf ("    Trigger: %gmV:\n", in_params->Trigger);
+	printf ("    Samples: %d points\n", in_params->Samples);
+	printf ("    Delay  : %d data points\n", in_params->Delay);
+	printf ("    File   : %s\n", in_params->FileName);
+	printf ("    Iterations: %d\n", in_params->Iterations);
+	printf ("    Print  : %s\n", (in_params->Print > 0) ? "yes" : "no");
 }
 //-----------------------------------------------------------------------------
 void normalize_buff (uint32_t *buff, uint32_t buff_size)
