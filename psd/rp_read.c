@@ -76,11 +76,9 @@ int main(int argc, char **argv)
 		printf("Error setting decimation\n");;
 	if (rp_AcqSetSamplingRate(RP_SMP_125M) != RP_OK)
 		printf ("Setting sampleing rate error\n");
-//	rp_AcqSetTriggerLevel(RP_CH_1, 10e-3); //Trig level is set in Volts while in SCPI
 	rp_AcqSetTriggerLevel(RP_CH_1, in_params.Trigger); //Trig level is set in Volts while in SCPI
-//	rp_AcqSetTriggerDelay(5000);
-
 	rp_AcqSetTriggerDelay(in_params.Delay);
+
 
         // there is an option to select coupling when using SIGNALlab 250-12
         // rp_AcqSetAC_DC(RP_CH_1, RP_AC); // enables AC coupling on channel 1
@@ -215,9 +213,7 @@ int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct Inpu
 	time_t tStart, tNow;
 	bool fTrigger, fTimeLimit;
 
-//	rp_AcqReset ();
-
-
+	rp_AcqStart ();
 	if (rp_AcqSetDecimation(RP_DEC_1) != RP_OK)
 		printf("Error setting decimation\n");;
 	if (rp_AcqSetSamplingRate(RP_SMP_125M) != RP_OK)
@@ -227,11 +223,12 @@ int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct Inpu
 
 	rp_AcqSetTriggerDelay(in_params->Delay);
 
-	rp_AcqStart ();
-
+	//rp_AcqStart ();
 	usleep(100);
-
 	rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE);
+
+
+
 	rp_acq_trig_state_t state = RP_TRIG_STATE_TRIGGERED;
 	time(&tStart);
 	fTrigger = fTimeLimit = false;
