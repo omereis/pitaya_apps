@@ -29,7 +29,6 @@ struct InputParams {
 	int Iterations;
 };
 //-----------------------------------------------------------------------------
-int read_input_raw (uint16_t *buff, uint32_t buff_size, int *pnWaits, struct InputParams *in_params);
 int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct InputParams *in_params);
 //int read_input (float *buff, uint32_t buff_size, int *pnWaits, struct InputParams *in_params);
 void set_params_defaults (struct InputParams *in_params);
@@ -43,7 +42,6 @@ void print_mote_buffer (float *buff, uint32_t buff_size, char *szFile);
 
 void normalize_buff_float (float *buff, uint32_t buff_size);
 void print_buffer_volts (float *buff, uint32_t buff_size, char *szFile);
-void print_buffer_raw (uint16_t *buff, uint32_t buff_size, char *szFile);
 void calc_histogram (float *adResults, uint32_t nSize);
 //-----------------------------------------------------------------------------
 int main(int argc, char **argv)
@@ -210,50 +208,6 @@ int main(int argc, char **argv)
 }
 int nDebug=1;
 //-----------------------------------------------------------------------------
-int read_input_raw (uint16_t* buff, uint32_t buff_size, int *pnWaits, struct InputParams *in_params)
-{
-	*pnWaits=1;
-	time_t tStart, tNow;
-	bool fTrigger, fTimeLimit;
-
-	if (rp_AcqSetDecimation(RP_DEC_1) != RP_OK)
-		printf("Error setting decimation\n");;
-	if (rp_AcqSetSamplingRate(RP_SMP_125M) != RP_OK)
-		printf ("Setting sampleing rate error\n");
-
-	rp_AcqSetTriggerLevel(RP_CH_1, in_params->Trigger); //Trig level is set in Volts while in SCPI
-	rp_AcqSetTriggerDelay(in_params->Delay);
-	rp_AcqStart ();
-
-	rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE);
-	rp_acq_trig_state_t state = RP_TRIG_STATE_TRIGGERED;
-	time(&tStart);
-	fTrigger = fTimeLimit = false;
-	while((!fTrigger) && (!fTimeLimit)){
-		rp_AcqGetTriggerState(&state);
-		if(state == RP_TRIG_STATE_TRIGGERED){
-			fTrigger = true;
-		}
-		usleep(1);
-		time(&tNow);
-		if (difftime (tNow, tStart) >= 15)
-			fTimeLimit = true;
-		(*pnWaits)++;
-	}
-//	if (fTrigger)
-//		printf("Trigger Occurred\n");
-	if (fTimeLimit)
-		printf ("Time Limit Reached\n");
-	//rp_AcqGetOldestDataV(RP_CH_1, &buff_size, buff);
-	rp_AcqGetOldestDataRaw(RP_CH_1, &buff_size, (int16_t*) buff);
-	rp_AcqStop ();
-	nDebug++;
-	if (fTimeLimit)
-		return (0);
-	else
-		return (1);
-}
-//-----------------------------------------------------------------------------
 int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct InputParams *in_params)
 {
 	*pnWaits=1;
@@ -419,18 +373,6 @@ void print_buffer_volts (float *buff, uint32_t buff_size, char *szFile)
 	fout = fopen (szFile, "w+");
 	for(n = 0; n < buff_size; n++){
 		fprintf(fout, "%f\n", buff[n]);
-	}
-	fclose (fout);
-}
-//-----------------------------------------------------------------------------
-void print_buffer_raw (uint16_t *buff, uint32_t buff_size, char *szFile)
-{
-	FILE *fout;
-	int n;
-
-	fout = fopen (szFile, "w+");
-	for(n = 0; n < buff_size; n++){
-		fprintf(fout, "%d\n", buff[n]);
 	}
 	fclose (fout);
 }
