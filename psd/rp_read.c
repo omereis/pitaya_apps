@@ -43,7 +43,7 @@ void print_mote_buffer (float *buff, uint32_t buff_size, char *szFile);
 
 void normalize_buff_float (float *buff, uint32_t buff_size);
 void print_buffer_volts (float *buff, uint32_t buff_size, char *szFile);
-void calc_histogram (float *adResults, uint32_t nSize);
+void calc_histogram (float *adResults, uint32_t nSize, int nBins);
 //-----------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
@@ -86,34 +86,34 @@ int main(int argc, char **argv)
         // by default LV level gain is selected
         // rp_AcqSetGain(RP_CH_1, RP_LOW); // user can switch gain using this command
 
-	rp_AcqStart();
+//	rp_AcqStart();
 
         /* After acquisition is started some time delay is needed in order to acquire fresh samples in to buffer*/
         /* Here we have used time delay of one second but you can calculate exact value taking in to account buffer*/
         /*length and smaling rate*/
 
-	sleep(1);
+//	sleep(1);
 	int nWaits, nValids/*, fPrint, iBiggest*/;
 	double d = ((double) in_params.Delay * -1.0) + 8188.0;
 	float dSum=0;
-//	int nIterations = in_params.Iterations;//5;
 	int j, k, nStart = (int) d;//(nDelay * -124.9) + 8188, fPrint; // from measurements
 	float *adResults, dHistMin=0, dHistMax=0, *adMax, dSamplesMax, dBiggest;
 
 	adResults = calloc (in_params.Iterations, sizeof (adResults[0]));
 	adMax = calloc (in_params.Iterations, sizeof (adResults[0]));
 	adMax[0] = 17;
+	nStart = 0;
 	printf("d=%g, nStart=%d, buf_size=%d\n", d, nStart, buff_size);
 	nStart = 0;
 	for (k=0, nValids=0 ; k < in_params.Iterations ; k++) {
 		if (read_input_volts (afBuff, buff_size, &nWaits, &in_params) > 0) {
 			normalize_buff_float (afBuff, buff_size);
-			//sprintf (sz, "n%02d.csv", k+1);
-//			print_buffer_volts (afBuff, buff_size, sz);
-
 			for (j=nStart ; j < buff_size ; j++) {
-				if (j == nStart)
-					dBiggest = dSum = dSamplesMax = afBuff[0];
+				if (j == nStart) {
+					dBiggest = afBuff[0];
+					dSum = afBuff[0];
+					dSamplesMax = afBuff[0];
+				}
 				else {
 					dSum += afBuff[j];
 					dSamplesMax = max (dSamplesMax, afBuff[j]);
@@ -123,8 +123,7 @@ int main(int argc, char **argv)
 					}
 				}
 			}
-//			fPrint = false;//dSum > 10e3; .// don't print for now
-			adResults[k]= dSum;
+			adResults[k]= (float) dSum;
 			adMax[k] = dSamplesMax;
 			nValids++;
 			if (in_params.Print) {
@@ -138,10 +137,13 @@ int main(int argc, char **argv)
 		if ((k % 100) == 0)
 			fprintf (stderr, "Completed %d iterations, Max: %g, Min: %g\r", k, dHistMax, dHistMin);
 	}
+	printf ("\n");
 	fprintf (stderr, "===============================\n");
 	fprintf (stderr, "Reading done after %d iterations\n", in_params.Iterations);
 	fprintf (stderr, "===============================\n");
-	calc_histogram (adResults, buff_size);
+	//print_buffer_volts (adResults, in_params.Iterations, "sums.csv");
+	calc_histogram (adResults, in_params.Iterations, 1024);
+	fprintf (stderr, "histogram calculated\n");
 /*
 	for (k=0 ; k < nValids ; k++) {
 		dSum = adResults[k];
@@ -201,7 +203,8 @@ int main(int argc, char **argv)
 
 //	free (adResults);
 //	free (afBuff);
-//	rp_Release();
+//	rp_AcqStop ();
+	rp_Release();
 
 	return 0;
 }
@@ -213,7 +216,7 @@ int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct Inpu
 	time_t tStart, tNow;
 	bool fTrigger, fTimeLimit;
 
-	rp_AcqStart ();
+//	rp_AcqStart ();
 	if (rp_AcqSetDecimation(RP_DEC_1) != RP_OK)
 		printf("Error setting decimation\n");;
 	if (rp_AcqSetSamplingRate(RP_SMP_125M) != RP_OK)
@@ -223,7 +226,7 @@ int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct Inpu
 
 	rp_AcqSetTriggerDelay(in_params->Delay);
 
-	//rp_AcqStart ();
+	rp_AcqStart ();
 	usleep(100);
 	rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE);
 
@@ -248,6 +251,9 @@ int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct Inpu
 	if (fTimeLimit)
 		printf ("Time Limit Reached\n");
 	rp_AcqGetOldestDataV(RP_CH_1, &buff_size, buff);
+	rp_AcqStop ();
+	for (int n=0 ; n < buff_size ; n++)
+		buff[n] = buff[n] * 1e3;
 	rp_AcqStop ();
 	nDebug++;
 	if (fTimeLimit)
@@ -355,9 +361,6 @@ void normalize_buff_float (float *buff, uint32_t buff_size)
 	int n;
 	float fMin = 1e300;
 
-//	for (n=0 ; n < buff_size ; n++)
-//		if (buff[n] < 0)
-//			buff[n] = 0;
 	for (n=0 ; n < buff_size ; n++)
 		fMin = min (fMin, buff[n]);
 	for (int n=0 ; n < buff_size ; n++)
@@ -388,25 +391,40 @@ void print_mote_buffer (float *buff, uint32_t buff_size, char *szFile)
 	fclose (fout);
 }
 //-----------------------------------------------------------------------------
-void calc_histogram (float *adResults, uint32_t nSize)
+void calc_histogram (float *adResults, uint32_t nSize, int nBins)
 {
 	int n, idx;
 	int *anHistogram;
-	float rMax, rMin, rBin;
+	float rMax, rMin, rBin, rNominator;
 
-	anHistogram = (int*) calloc (nSize, sizeof (anHistogram[0]));
+	anHistogram = (int*) calloc (nBins, sizeof (anHistogram[0]));
 	rMin = rMax = adResults[0];
 	for (n=1 ; n < nSize ; n++) {
 		rMin = min(rMin, adResults[n]);
 		rMax = max(rMax, adResults[n]);
 	}
-	rBin = (rMax - rMin) / 1024;
+	rBin = (rMax - rMin) / nBins;
+	printf ("+=======================================================++\n");
+	printf ("Maximum: %g\nMinmum: %g\n# of bins: %d, Bin: %g\n", rMax, rMin, nBins, rBin);
+	printf ("+=======================================================++\n");
+	FILE *fDebug = fopen ("or_debug.csv", "w+");
+	for (n=0 ; n < nBins ; n++)
+		anHistogram = 0;
 	for (n=0 ; n < nSize ; n++) {
-		idx = (int) (adResults[n] / rBin);
-		anHistogram[idx] = anHistogram[idx] + 1;
+		rNominator = (adResults[n] - rMin);
+		idx = (int) ((adResults[n] - rMin) / rBin);
+		fprintf (fDebug, "%g,%g,%d,%g\n", rNominator, rBin, idx, rNominator/rBin);
+		if ((idx >= 0) && (idx < nBins))
+			anHistogram[idx] = anHistogram[idx] + 1;
 	}
+	fclose (fDebug);
+	printf ("Debug file printed\n");
+	char sz[1024], szName[1024];
+	getcwd (sz, 24);
+	printf ("Current directory is %s\n", sz);
 	FILE *file;
-	file = fopen ("hist.csv", "w+");
+	sprintf (szName, "%s/hist.csv", sz);
+	file = fopen (szName, "w+");
 	for (n=0 ; n < 1024 ; n++)
 		fprintf (file, "%d\n", anHistogram[n]);
 	fclose(file);
