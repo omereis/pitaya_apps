@@ -43,7 +43,8 @@ void print_mote_buffer (float *buff, uint32_t buff_size, char *szFile);
 
 void normalize_buff_float (float *buff, uint32_t buff_size);
 void print_buffer_volts (float *buff, uint32_t buff_size, char *szFile);
-void calc_histogram (float *adResults, uint32_t nSize, int nBins);
+void calc_histogram (float *adResults, uint32_t nSize, int nBins, int fUseZero, char *szFile);
+void print_debug (const char *sz);
 //-----------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
@@ -101,13 +102,13 @@ int main(int argc, char **argv)
 
 	adResults = calloc (in_params.Iterations, sizeof (adResults[0]));
 	adMax = calloc (in_params.Iterations, sizeof (adResults[0]));
-	adMax[0] = 17;
+//	adMax[0] = 17;
 	nStart = 0;
 	printf("d=%g, nStart=%d, buf_size=%d\n", d, nStart, buff_size);
 	nStart = 0;
 	for (k=0, nValids=0 ; k < in_params.Iterations ; k++) {
 		if (read_input_volts (afBuff, buff_size, &nWaits, &in_params) > 0) {
-			normalize_buff_float (afBuff, buff_size);
+//			normalize_buff_float (afBuff, buff_size);
 			for (j=nStart ; j < buff_size ; j++) {
 				if (j == nStart) {
 					dBiggest = afBuff[0];
@@ -128,8 +129,14 @@ int main(int argc, char **argv)
 			nValids++;
 			if (in_params.Print) {
 				char sz[1024];
-				sprintf (sz, "signal%d.csv", k+1);
+				sprintf (sz, "%s%d.csv", in_params.FileName, k+1);
 				print_buffer_volts (afBuff, buff_size, sz);
+				uint32_t nTrigPos;
+	//rp_AcqGetWritePointer
+				rp_AcqGetWritePointerAtTrig (&nTrigPos);
+				char szTrig[1024];
+				sprintf (szTrig, "Trigger position at iteration %d: %d", k+1, nTrigPos);
+				print_debug (szTrig);
 			}
 /**/
 		}
@@ -138,27 +145,12 @@ int main(int argc, char **argv)
 			fprintf (stderr, "Completed %d iterations, Max: %g, Min: %g\r", k, dHistMax, dHistMin);
 	}
 	printf ("\n");
-	fprintf (stderr, "===============================\n");
-	fprintf (stderr, "Reading done after %d iterations\n", in_params.Iterations);
-	fprintf (stderr, "===============================\n");
-	//print_buffer_volts (adResults, in_params.Iterations, "sums.csv");
-	calc_histogram (adResults, in_params.Iterations, 1024);
+//	fprintf (stderr, "===============================\n");
+//	fprintf (stderr, "Reading done after %d iterations\n", in_params.Iterations);
+//	fprintf (stderr, "===============================\n");
+	calc_histogram (adResults, in_params.Iterations, 1024, 0, "hist_sum.csv");
+	calc_histogram (adMax, in_params.Iterations, 1024, 1, "hist_max.csv");
 	fprintf (stderr, "histogram calculated\n");
-/*
-	for (k=0 ; k < nValids ; k++) {
-		dSum = adResults[k];
-		if (k == 0)
-			dHistMin = dHistMax = dSum;
-		else {
-			if (dSum < dHistMin) {
-				dHistMin = dSum;
-			}
-			if (dSum > dHistMax) {
-				dHistMax = dSum;
-			}
-		}
-	}
-*/
 	printf ("\n");
 
 /*
@@ -172,10 +164,10 @@ int main(int argc, char **argv)
 	fprintf (stderr, "Histogram Memory Allocated\n");
 	fprintf (stderr, "Histogram Memory Freed\n");
 	double dBin = (dHistMax - dHistMin) / 1024.0;
-	printf ("===============================\n");
-	printf("\nMinimum: %g,\nMaximum: %g\nBin: %g\n", dHistMin, dHistMax, dBin);
-	printf("%d valid iterations out of %d\n", nValids, in_params.Iterations);
-	printf ("===============================\n");
+//	printf ("===============================\n");
+//	printf("\nMinimum: %g,\nMaximum: %g\nBin: %g\n", dHistMin, dHistMax, dBin);
+//	printf("%d valid iterations out of %d\n", nValids, in_params.Iterations);
+//	printf ("===============================\n");
 
 	for (n=0 ; n < nValids ; n++)
 		anHistogram[n] = 0;
@@ -196,7 +188,7 @@ int main(int argc, char **argv)
 //	memcpy (big_buff, buff, sizeof(buff[0]) * buff_size);
 //	printf ("Read once\n");
 	print_buffer_volts (adResults, in_params.Iterations, "sums.csv");
-	print_buffer_volts (adMax, in_params.Iterations, "max.csv");
+//	print_buffer_volts (adMax, in_params.Iterations, "max.csv");
 	//print_buffer (buff, buff_size, in_params.FileName);
 
 /* end of 1st read */
@@ -207,6 +199,13 @@ int main(int argc, char **argv)
 	rp_Release();
 
 	return 0;
+}
+//-----------------------------------------------------------------------------
+void print_debug (const char *sz)
+{
+	FILE *file = fopen ("oe_debug.txt", "a+");
+	fprintf (file, "%s\n", sz);
+	fclose(file);
 }
 int nDebug=1;
 //-----------------------------------------------------------------------------
@@ -230,9 +229,7 @@ int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct Inpu
 	usleep(100);
 	rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE);
 
-
-
-	rp_acq_trig_state_t state = RP_TRIG_STATE_TRIGGERED;
+	rp_acq_trig_state_t state = RP_TRIG_STATE_WAITING;
 	time(&tStart);
 	fTrigger = fTimeLimit = false;
 	while((!fTrigger) && (!fTimeLimit)){
@@ -246,14 +243,15 @@ int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct Inpu
 			fTimeLimit = true;
 		(*pnWaits)++;
 	}
-//	if (fTrigger)
+	if (fTrigger) {
 //		printf("Trigger Occurred\n");
+		uint32_t nTrigPos;
+		rp_AcqGetWritePointerAtTrig (&nTrigPos);
+		rp_AcqGetDataV(RP_CH_1, nTrigPos-50, &buff_size, buff); // 80 nSec before trigger
+	}
 	if (fTimeLimit)
 		printf ("Time Limit Reached\n");
-	rp_AcqGetOldestDataV(RP_CH_1, &buff_size, buff);
-	rp_AcqStop ();
-	for (int n=0 ; n < buff_size ; n++)
-		buff[n] = buff[n] * 1e3;
+
 	rp_AcqStop ();
 	nDebug++;
 	if (fTimeLimit)
@@ -313,7 +311,7 @@ void set_params_defaults (struct InputParams *in_params)
 	in_params->Samples = 12500;
 	in_params->Delay = 1250;
 	in_params->Help = 0;
-	in_params->FileName = "out.csv";
+	in_params->FileName = "out";
 	in_params->Iterations = 10;
 	in_params->Print = 0;
 }
@@ -391,39 +389,46 @@ void print_mote_buffer (float *buff, uint32_t buff_size, char *szFile)
 	fclose (fout);
 }
 //-----------------------------------------------------------------------------
-void calc_histogram (float *adResults, uint32_t nSize, int nBins)
+void calc_histogram (float *adResults, uint32_t nSize, int nBins, int fUseZero, char *szFile)
 {
 	int n, idx;
 	int *anHistogram;
 	float rMax, rMin, rBin, rNominator;
 
 	anHistogram = (int*) calloc (nBins, sizeof (anHistogram[0]));
-	rMin = rMax = adResults[0];
+	rMax = adResults[0];
+	if (fUseZero > 0)
+		rMin = adResults[0];
+	else
+		rMin = 0;
 	for (n=1 ; n < nSize ; n++) {
-		rMin = min(rMin, adResults[n]);
+		if (fUseZero > 0)
+			rMin = min(rMin, adResults[n]);
 		rMax = max(rMax, adResults[n]);
 	}
 	rBin = (rMax - rMin) / nBins;
 	printf ("+=======================================================++\n");
-	printf ("Maximum: %g\nMinmum: %g\n# of bins: %d, Bin: %g\n", rMax, rMin, nBins, rBin);
+	printf ("Maximum: %g\nMinmum: %g\n# of bins: %d\n, Bin: %g\n", rMax, rMin, nBins, rBin);
 	printf ("+=======================================================++\n");
-	FILE *fDebug = fopen ("or_debug.csv", "w+");
+	FILE *fDebug = fopen ("oe_debug.csv", "w+");
+	fprintf (fDebug, "Nominator, Bin, idx, (rNominator/rBin)\n");
 	for (n=0 ; n < nBins ; n++)
-		anHistogram = 0;
+		anHistogram[n] = 0;
 	for (n=0 ; n < nSize ; n++) {
 		rNominator = (adResults[n] - rMin);
 		idx = (int) ((adResults[n] - rMin) / rBin);
 		fprintf (fDebug, "%g,%g,%d,%g\n", rNominator, rBin, idx, rNominator/rBin);
-		if ((idx >= 0) && (idx < nBins))
+		if ((idx >= 0) && (idx < nBins)) {
 			anHistogram[idx] = anHistogram[idx] + 1;
+		}
 	}
+	printf ("Histogram callculated\n");
 	fclose (fDebug);
-	printf ("Debug file printed\n");
 	char sz[1024], szName[1024];
 	getcwd (sz, 24);
-	printf ("Current directory is %s\n", sz);
 	FILE *file;
-	sprintf (szName, "%s/hist.csv", sz);
+	sprintf (szName, "%s/%s", sz, szFile);
+//	sprintf (szName, "%s/hist.csv", sz);
 	file = fopen (szName, "w+");
 	for (n=0 ; n < 1024 ; n++)
 		fprintf (file, "%d\n", anHistogram[n]);
