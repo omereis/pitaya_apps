@@ -251,6 +251,7 @@ int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct Inpu
 	}
 	if (fTimeLimit)
 		printf ("Time Limit Reached\n");
+//	rp_AcqGetOldestDataV(RP_CH_1, &buff_size, buff);
 
 	rp_AcqStop ();
 	nDebug++;
