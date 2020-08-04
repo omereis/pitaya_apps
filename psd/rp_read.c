@@ -66,7 +66,7 @@ int main(int argc, char **argv)
         /*LOOB BACK FROM OUTPUT 2 - ONLY FOR TESTING*/
 	uint32_t buff_size = in_params.Samples;//6250;//12500;//16384;//8192;//16384;
 	//float *buff;// = (float *)malloc(buff_size * sizeof(float));
-	uint16_t *buff;
+//	uint16_t *buff;
 	float *afBuff;
 
 //	buff =  (uint16_t *)malloc(buff_size * sizeof(buff[0]));
@@ -131,16 +131,18 @@ int main(int argc, char **argv)
 				char sz[1024];
 				sprintf (sz, "%s%d.csv", in_params.FileName, k+1);
 				print_buffer_volts (afBuff, buff_size, sz);
+/*
 				uint32_t nTrigPos;
 	//rp_AcqGetWritePointer
 				rp_AcqGetWritePointerAtTrig (&nTrigPos);
 				char szTrig[1024];
 				sprintf (szTrig, "Trigger position at iteration %d: %d", k+1, nTrigPos);
 				print_debug (szTrig);
+*/
 			}
 /**/
 		}
-		memset (afBuff, 0, buff_size * sizeof (buff[0]));
+//		memset (afBuff, 0, buff_size * sizeof (buff[0]));
 		if ((k % 100) == 0)
 			fprintf (stderr, "Completed %d iterations, Max: %g, Min: %g\r", k, dHistMax, dHistMin);
 	}
@@ -247,7 +249,7 @@ int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct Inpu
 //		printf("Trigger Occurred\n");
 		uint32_t nTrigPos;
 		rp_AcqGetWritePointerAtTrig (&nTrigPos);
-		rp_AcqGetDataV(RP_CH_1, nTrigPos-50, &buff_size, buff); // 80 nSec before trigger
+		rp_AcqGetDataV(RP_CH_1, nTrigPos-100, &buff_size, buff); // 80 nSec before trigger
 	}
 	if (fTimeLimit)
 		printf ("Time Limit Reached\n");
