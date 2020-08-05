@@ -25,31 +25,31 @@ struct InputParams {
 	int Samples;
 	float Trigger;
 	int Delay;
-	char *FileName;
+	char FileName[1024];
+	char HistFile[1024];
+	char SumsFile[1024];
 	int Iterations;
 	short Print;
 };
 //-----------------------------------------------------------------------------
 int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct InputParams *in_params);
-//int read_input (float *buff, uint32_t buff_size, int *pnWaits, struct InputParams *in_params);
 void set_params_defaults (struct InputParams *in_params);
-//void set_params_defaults (float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile);
-//void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile);
 void get_options (int argc, char **argv, struct InputParams *in_params);
 void print_usage();
 void print_params (struct InputParams *in_params);
 void print_mote_buffer (float *buff, uint32_t buff_size, char *szFile);
-//void print_params (float rTrigger, int nSamples, int nDelay, char *szFile);
 
 void normalize_buff_float (float *buff, uint32_t buff_size);
 void print_buffer_volts (float *buff, uint32_t buff_size, char *szFile);
 void calc_histogram (float *adResults, uint32_t nSize, int nBins, int fUseZero, char *szFile);
 void print_debug (const char *sz);
+void set_files_extensions (struct InputParams *in_params);
 //-----------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
 	struct InputParams in_params;
 
+	memset (&in_params, 0, sizeof (in_params));	
 	get_options (argc, argv, &in_params);
 	if (in_params.Help) {
 		print_usage();
@@ -65,11 +65,8 @@ int main(int argc, char **argv)
 
         /*LOOB BACK FROM OUTPUT 2 - ONLY FOR TESTING*/
 	uint32_t buff_size = in_params.Samples;//6250;//12500;//16384;//8192;//16384;
-	//float *buff;// = (float *)malloc(buff_size * sizeof(float));
-//	uint16_t *buff;
 	float *afBuff;
 
-//	buff =  (uint16_t *)malloc(buff_size * sizeof(buff[0]));
 	afBuff = (float*) calloc(buff_size, sizeof(afBuff[0]));
 
 	rp_AcqReset();
@@ -87,13 +84,11 @@ int main(int argc, char **argv)
         // by default LV level gain is selected
         // rp_AcqSetGain(RP_CH_1, RP_LOW); // user can switch gain using this command
 
-//	rp_AcqStart();
 
         /* After acquisition is started some time delay is needed in order to acquire fresh samples in to buffer*/
         /* Here we have used time delay of one second but you can calculate exact value taking in to account buffer*/
         /*length and smaling rate*/
 
-//	sleep(1);
 	int nWaits, nValids/*, fPrint, iBiggest*/;
 	double d = ((double) in_params.Delay * -1.0) + 8188.0;
 	float dSum=0;
@@ -102,13 +97,11 @@ int main(int argc, char **argv)
 
 	adResults = calloc (in_params.Iterations, sizeof (adResults[0]));
 	adMax = calloc (in_params.Iterations, sizeof (adResults[0]));
-//	adMax[0] = 17;
 	nStart = 0;
 	printf("d=%g, nStart=%d, buf_size=%d\n", d, nStart, buff_size);
 	nStart = 0;
 	for (k=0, nValids=0 ; k < in_params.Iterations ; k++) {
 		if (read_input_volts (afBuff, buff_size, &nWaits, &in_params) > 0) {
-//			normalize_buff_float (afBuff, buff_size);
 			for (j=nStart ; j < buff_size ; j++) {
 				if (j == nStart) {
 					dBiggest = afBuff[0];
@@ -120,7 +113,6 @@ int main(int argc, char **argv)
 					dSamplesMax = max (dSamplesMax, afBuff[j]);
 					if (dSamplesMax > dBiggest) {
 						dBiggest = dSamplesMax;
-//						iBiggest = k;
 					}
 				}
 			}
@@ -131,67 +123,20 @@ int main(int argc, char **argv)
 				char sz[1024];
 				sprintf (sz, "%s%d.csv", in_params.FileName, k+1);
 				print_buffer_volts (afBuff, buff_size, sz);
-/*
-				uint32_t nTrigPos;
-	//rp_AcqGetWritePointer
-				rp_AcqGetWritePointerAtTrig (&nTrigPos);
-				char szTrig[1024];
-				sprintf (szTrig, "Trigger position at iteration %d: %d", k+1, nTrigPos);
-				print_debug (szTrig);
-*/
 			}
-/**/
 		}
-//		memset (afBuff, 0, buff_size * sizeof (buff[0]));
 		if ((k % 100) == 0)
 			fprintf (stderr, "Completed %d iterations, Max: %g, Min: %g\r", k, dHistMax, dHistMin);
 	}
 	printf ("\n");
-//	fprintf (stderr, "===============================\n");
-//	fprintf (stderr, "Reading done after %d iterations\n", in_params.Iterations);
-//	fprintf (stderr, "===============================\n");
-	calc_histogram (adResults, in_params.Iterations, 1024, 0, "hist_sum.csv");
-	calc_histogram (adMax, in_params.Iterations, 1024, 1, "hist_max.csv");
+//	calc_histogram (adResults, in_params.Iterations, 1024, 0, "hist_sum.csv");
+	calc_histogram (adResults, in_params.Iterations, 1024, 0, in_params.HistFile);
+//	calc_histogram (adMax, in_params.Iterations, 1024, 1, "hist_max.csv");
 	fprintf (stderr, "histogram calculated\n");
 	printf ("\n");
 
-/*
-	int *anHistogram, nSize;
-	int n, idx;
-	fprintf (stderr, "Iterations: %d\n", in_params.Iterations);
-//	fprintf (stderr, "Size: %d\n", sizeof (anHistogram[0]));
-//	nSize = in_params.Iterations * sizeof (anHistogram[0]);
-	printf ("Allocation size: %d\n", nSize);
-//	anHistogram = (int*) malloc (nSize);
-	fprintf (stderr, "Histogram Memory Allocated\n");
-	fprintf (stderr, "Histogram Memory Freed\n");
-	double dBin = (dHistMax - dHistMin) / 1024.0;
-//	printf ("===============================\n");
-//	printf("\nMinimum: %g,\nMaximum: %g\nBin: %g\n", dHistMin, dHistMax, dBin);
-//	printf("%d valid iterations out of %d\n", nValids, in_params.Iterations);
-//	printf ("===============================\n");
-
-	for (n=0 ; n < nValids ; n++)
-		anHistogram[n] = 0;
-	for (n=0 ; n < nValids ; n++) {
-		idx = (int) (adResults[n] / dBin);
-		if (idx < nValids)
-			anHistogram[n] = anHistogram[n] + 1;
-	}
-
-	FILE *fHist = fopen ("hist.csv", "w+");
-	for (n=0 ; n < 1024 ; n++)
-		fprintf (fHist, "%d\n", anHistogram[n]);
-	fclose (fHist);
-	free (anHistogram);
-*/
-/*
-*/
-//	memcpy (big_buff, buff, sizeof(buff[0]) * buff_size);
-//	printf ("Read once\n");
-	print_buffer_volts (adResults, in_params.Iterations, "sums.csv");
-//	print_buffer_volts (adMax, in_params.Iterations, "max.csv");
-	//print_buffer (buff, buff_size, in_params.FileName);
+//	print_buffer_volts (adResults, in_params.Iterations, "sums.csv");
+	print_buffer_volts (adResults, in_params.Iterations, in_params.SumsFile);
 
 /* end of 1st read */
 
@@ -263,8 +208,6 @@ int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct Inpu
 		return (1);
 }
 //-----------------------------------------------------------------------------
-//void get_options (int argc, char **argv, float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile)
-//-----------------------------------------------------------------------------
 void get_options (int argc, char **argv, struct InputParams *in_params)
 {
 	int c;
@@ -273,10 +216,12 @@ void get_options (int argc, char **argv, struct InputParams *in_params)
 	set_params_defaults (in_params);
 //	memset (in_params, 0, sizeof(*in_params));
 
-	while ((c = getopt (argc, argv, "hpt:n:f:d:i:")) != -1)
+//	char *HistFile;
+//	char *SumsFile;
+
+	while ((c = getopt (argc, argv, "hpt:n:f:d:i:s:H:")) != -1)
 		switch (c) {
 			default:
-			case 'H':
 			case 'h':
 				in_params->Help = 1;
 				return;
@@ -294,7 +239,14 @@ void get_options (int argc, char **argv, struct InputParams *in_params)
 				break;
 			case 'f':
 			case 'F':
-				in_params->FileName = optarg;
+				strcpy (in_params->FileName, optarg);
+				break;
+			case 's':
+			case 'S':
+				strcpy (in_params->SumsFile, optarg);
+				break;
+			case 'H':
+				strcpy (in_params->HistFile, optarg);
 				break;
 			case 'd':
 			case 'D':
@@ -305,30 +257,49 @@ void get_options (int argc, char **argv, struct InputParams *in_params)
 				in_params->Iterations = atoi(optarg);
 				break;
 		}
+	set_files_extensions (in_params);
 } 
 //-----------------------------------------------------------------------------
+char *add_file_extension (char *szFileName)
+{
+	if (strchr(szFileName, '.') == NULL)
+		sprintf (szFileName, "%s.csv", szFileName);
+	return (szFileName);
+}
+//-----------------------------------------------------------------------------
+void set_files_extensions (struct InputParams *in_params)
+{
+	add_file_extension (in_params->FileName);
+	add_file_extension (in_params->SumsFile);
+	add_file_extension (in_params->HistFile);
+}
+//-----------------------------------------------------------------------------
 void set_params_defaults (struct InputParams *in_params)
-//void set_params_defaults (float *prTrigger, int *pnSamples, int *pnDelay, short *pfHelp, char **pszFile)
 {
 	in_params->Trigger = 10e-3;
 	in_params->Samples = 12500;
 	in_params->Delay = 1250;
 	in_params->Help = 0;
-	in_params->FileName = "out";
 	in_params->Iterations = 10;
 	in_params->Print = 0;
+	strcpy (in_params->FileName, "out");
+	strcpy (in_params->SumsFile, "sums");
+	strcpy (in_params->HistFile, "hist");
+	set_files_extensions (in_params);
 }
 //-----------------------------------------------------------------------------
 void print_usage()
 {
 	char *szMessage = "Red Pitaya RF input\n"
 					"Synopsis:\n"
-					"./rp_read -t <trigger [volts]> -n <# of samples> -f <output file name> -d <delay items> -i <# of iterations> -p print results\n"
-					"  Defaults:\n"
+					"./rp_read -t <trigger [volts]> -n <# of samples> -f <output file name> -d <delay items> -i <# of iterations>\n\t  -s <sums file name> -H <histogram file name> -p print results\n"
+					"  \nDefaults:\n"
 					"    Trigger: 10mV:\n"
 					"    Samples: 10,000\n"
 					"    Delay  : 1250 data points\n"
 					"    File   : out.csv\n"
+					"    Histogram   : hist.csv\n"
+					"    Sums   : sums.csv\n"
 					"    Iterations: 10\n"
 					"    Print  : 0 (no)\n";
 	printf ("%s\n", szMessage);
@@ -342,6 +313,8 @@ void print_params (struct InputParams *in_params)
 	printf ("    Samples: %d points\n", in_params->Samples);
 	printf ("    Delay  : %d data points\n", in_params->Delay);
 	printf ("    File   : %s\n", in_params->FileName);
+	printf ("    Histogram   : %s\n", in_params->HistFile);
+	printf ("    Sums   : %s\n", in_params->SumsFile);
 	printf ("    Iterations: %d\n", in_params->Iterations);
 	printf ("    Print  : %s\n", (in_params->Print > 0) ? "yes" : "no");
 }
