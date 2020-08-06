@@ -76,6 +76,9 @@ int main(int argc, char **argv)
 		printf ("Setting sampleing rate error\n");
 	rp_AcqSetTriggerLevel(RP_CH_1, in_params.Trigger); //Trig level is set in Volts while in SCPI
 	rp_AcqSetTriggerDelay(in_params.Delay);
+	rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE);
+	if (rp_AcqSetDecimation(RP_DEC_1) != RP_OK)
+		printf("Error setting decimation\n");
 
 
         // there is an option to select coupling when using SIGNALlab 250-12
@@ -120,9 +123,10 @@ int main(int argc, char **argv)
 			adMax[k] = dSamplesMax;
 			nValids++;
 			if (in_params.Print) {
-				char sz[1024];
-				sprintf (sz, "%s%d.csv", in_params.FileName, k+1);
-				print_buffer_volts (afBuff, buff_size, sz);
+//				char sz[1024];
+//				sprintf (sz, "%s%d.csv", in_params.FileName, k+1);
+//				print_buffer_volts (afBuff, buff_size, sz);
+				print_buffer_volts (afBuff, buff_size, in_params.FileName);
 			}
 		}
 		if ((k % 100) == 0)
@@ -162,19 +166,8 @@ int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct Inpu
 	time_t tStart, tNow;
 	bool fTrigger, fTimeLimit;
 
-//	rp_AcqStart ();
-	if (rp_AcqSetDecimation(RP_DEC_1) != RP_OK)
-		printf("Error setting decimation\n");;
-	if (rp_AcqSetSamplingRate(RP_SMP_125M) != RP_OK)
-		printf ("Setting sampleing rate error\n");
-
-	rp_AcqSetTriggerLevel(RP_CH_1, in_params->Trigger); //Trig level is set in Volts while in SCPI
-
-	rp_AcqSetTriggerDelay(in_params->Delay);
-
 	rp_AcqStart ();
 	usleep(100);
-	rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE);
 
 	rp_acq_trig_state_t state = RP_TRIG_STATE_WAITING;
 	time(&tStart);
@@ -212,12 +205,7 @@ void get_options (int argc, char **argv, struct InputParams *in_params)
 {
 	int c;
 
-//	set_params_defaults (prTrigger, pnSamples, pnDelay, pfHelp, pszFile);
 	set_params_defaults (in_params);
-//	memset (in_params, 0, sizeof(*in_params));
-
-//	char *HistFile;
-//	char *SumsFile;
 
 	while ((c = getopt (argc, argv, "hpt:n:f:d:i:s:H:")) != -1)
 		switch (c) {
@@ -305,7 +293,6 @@ void print_usage()
 	printf ("%s\n", szMessage);
 }
 //-----------------------------------------------------------------------------
-//void print_params (float rTrigger, int nSamples, int nDelay, char *szFile)
 void print_params (struct InputParams *in_params)
 {
 	printf ("Red Pitaya RF input\n");
@@ -369,7 +356,7 @@ void calc_histogram (float *adResults, uint32_t nSize, int nBins, int fUseZero, 
 {
 	int n, idx;
 	int *anHistogram;
-	float rMax, rMin, rBin, rNominator;
+	float rMax, rMin, rBin;//, rNominator;
 
 	anHistogram = (int*) calloc (nBins, sizeof (anHistogram[0]));
 	rMax = adResults[0];
@@ -386,20 +373,20 @@ void calc_histogram (float *adResults, uint32_t nSize, int nBins, int fUseZero, 
 	printf ("+=======================================================++\n");
 	printf ("Maximum: %g\nMinmum: %g\n# of bins: %d\n, Bin: %g\n", rMax, rMin, nBins, rBin);
 	printf ("+=======================================================++\n");
-	FILE *fDebug = fopen ("oe_debug.csv", "w+");
-	fprintf (fDebug, "Nominator, Bin, idx, (rNominator/rBin)\n");
+//	FILE *fDebug = fopen ("oe_debug.csv", "w+");
+//	fprintf (fDebug, "Nominator, Bin, idx, (rNominator/rBin)\n");
 	for (n=0 ; n < nBins ; n++)
 		anHistogram[n] = 0;
 	for (n=0 ; n < nSize ; n++) {
-		rNominator = (adResults[n] - rMin);
+//		rNominator = (adResults[n] - rMin);
 		idx = (int) ((adResults[n] - rMin) / rBin);
-		fprintf (fDebug, "%g,%g,%d,%g\n", rNominator, rBin, idx, rNominator/rBin);
+//		fprintf (fDebug, "%g,%g,%d,%g\n", rNominator, rBin, idx, rNominator/rBin);
 		if ((idx >= 0) && (idx < nBins)) {
 			anHistogram[idx] = anHistogram[idx] + 1;
 		}
 	}
 	printf ("Histogram callculated\n");
-	fclose (fDebug);
+//	fclose (fDebug);
 	char sz[1024], szName[1024];
 	getcwd (sz, 24);
 	FILE *file;
