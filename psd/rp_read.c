@@ -63,6 +63,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Rp api init failed!\n");
 	}
 
+/*************************************************************/
         /*LOOB BACK FROM OUTPUT 2 - ONLY FOR TESTING*/
 	uint32_t buff_size = in_params.Samples;//6250;//12500;//16384;//8192;//16384;
 	float *afBuff;
@@ -162,14 +163,18 @@ int nDebug=1;
 //-----------------------------------------------------------------------------
 int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct InputParams *in_params)
 {
-	*pnWaits=1;
 	time_t tStart, tNow;
 	bool fTrigger, fTimeLimit;
 
-	rp_AcqStart ();
-	usleep(100);
-
 	rp_acq_trig_state_t state = RP_TRIG_STATE_WAITING;
+	rp_AcqReset();
+	rp_AcqSetDecimation(1);
+	rp_AcqSetTriggerLevel(RP_CH_1, 10e-3); //Trig level is set in Volts while in SCPI
+	rp_AcqSetSamplingRate (RP_SMP_125M);
+	rp_AcqSetTriggerDelay(0);
+	rp_AcqStart();
+	usleep(1);
+	rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE);
 	time(&tStart);
 	fTrigger = fTimeLimit = false;
 	while((!fTrigger) && (!fTimeLimit)){
@@ -177,28 +182,24 @@ int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct Inpu
 		if(state == RP_TRIG_STATE_TRIGGERED){
 			fTrigger = true;
 		}
-		usleep(1);
 		time(&tNow);
-		if (difftime (tNow, tStart) >= 15)
+		if (difftime (tNow, tStart) >= 5)
 			fTimeLimit = true;
-		(*pnWaits)++;
 	}
+
 	if (fTrigger) {
-//		printf("Trigger Occurred\n");
+		printf ("Triggered\n");
 		uint32_t nTrigPos;
 		rp_AcqGetWritePointerAtTrig (&nTrigPos);
-		rp_AcqGetDataV(RP_CH_1, nTrigPos-100, &buff_size, buff); // 80 nSec before trigger
+		rp_AcqGetDataV(RP_CH_1, nTrigPos-1000, &buff_size, buff); // 80 nSec before trigger
 	}
-	if (fTimeLimit)
-		printf ("Time Limit Reached\n");
-//	rp_AcqGetOldestDataV(RP_CH_1, &buff_size, buff);
-
-	rp_AcqStop ();
-	nDebug++;
-	if (fTimeLimit)
-		return (0);
 	else
-		return (1);
+		printf ("Timeout\n");
+	for(int i = 0; i < buff_size; i++){
+		buff[i] = buff[i] + 1000;
+	}
+	rp_AcqStop ();
+	return (fTrigger);
 }
 //-----------------------------------------------------------------------------
 void get_options (int argc, char **argv, struct InputParams *in_params)
