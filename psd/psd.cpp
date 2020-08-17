@@ -53,6 +53,7 @@ void SetTrigger ();
 void SetSampling();
 void exit_error (const char *szMessage);
 bool ReadInputs (float *afBuffer, uint32_t nSize);
+void SaveBuffer (float *afBuffer, uint32_t nSize);
 //-----------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
@@ -61,10 +62,11 @@ int main(int argc, char **argv)
     InitRedPitaya();
     SetTrigger ();
     SetSampling();
-    nSize = 100000;
+    nSize = 6250;
     printf ("Red Pitaya initiated done\n");
     afBuffer = new float[nSize];
     ReadInputs (afBuffer, nSize);
+	SaveBuffer (afBuffer, nSize);
     rp_Release ();
     printf ("Red Pitaya released.\nBye.\n");
 }
@@ -81,9 +83,10 @@ void SetTrigger ()
 {
 	if (rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE) != RP_OK)
 		exit_error ("Error setting trigger source\n");
-	if (rp_AcqSetTriggerLevel(RP_CH_1, 10e-3) != RP_OK)
+	if (rp_AcqSetTriggerLevel(RP_CH_1, 50e-3) != RP_OK)
 		exit_error ("Error setting trigger level\n");
-	if (rp_AcqSetTriggerDelay(1250) != RP_OK)
+	if (rp_AcqSetTriggerDelay(1) != RP_OK)
+	//if (rp_AcqSetTriggerDelay(1250) != RP_OK)
 		exit_error ("Error setting trigger delay\n");
 }
 //-----------------------------------------------------------------------------
@@ -112,10 +115,10 @@ bool ReadInputs (float *afBuffer, uint32_t nSize)
 	time(&tStart);
 	fTrigger = fTimeLimit = false;
 	while((!fTrigger) && (!fTimeLimit)) {
+		usleep(1);
 		rp_AcqGetTriggerState(&state);
 		if(state == RP_TRIG_STATE_TRIGGERED)
 			fTrigger = true;
-		usleep(1);
 		time(&tNow);
 		if (difftime (tNow, tStart) >= 15)
 			fTimeLimit = true;
@@ -123,10 +126,19 @@ bool ReadInputs (float *afBuffer, uint32_t nSize)
 	if (fTrigger) {
 		uint32_t nTrigPos;
 		rp_AcqGetWritePointerAtTrig (&nTrigPos); // get pointer at trigger time
-		rp_AcqGetDataV(RP_CH_1, nTrigPos-100, &nSize, afBuffer); // 80 nSec before trigger
+		rp_AcqGetDataV(RP_CH_1, nTrigPos, &nSize, afBuffer); // 80 nSec before trigger
+		//rp_AcqGetDataV(RP_CH_1, nTrigPos-100, &nSize, afBuffer); // 80 nSec before trigger
 	}
 	rp_AcqStop ();
     return (fTrigger);
+}
+//-----------------------------------------------------------------------------
+void SaveBuffer (float *afBuffer, uint32_t nSize)
+{
+	FILE *file = fopen ("signal.csv", "w+");
+	for (uint32_t n=0 ; n < nSize ; n++)
+		fprintf (file, "%g\n", afBuffer[n]);
+	fclose (file);
 }
 
 //-----------------------------------------------------------------------------

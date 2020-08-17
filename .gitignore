@@ -33,3 +33,5 @@ read_test
 mytst
 test
 rp_read
+psd
+*.swp
