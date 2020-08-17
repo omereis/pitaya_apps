@@ -2,29 +2,29 @@
 VERSION ?= 0.00-0000
 REVISION ?= devbuild 
 
-CC=$(CROSS_COMPILE)gcc
+CC=$(CROSS_COMPILE)g++
 
-OBJS = read_signal.o
+OBJS = psd.o
 
-TARGET = read_signal
+TARGET = psd
 
-CFLAGS  = -g -std=gnu99 -Wall -Werror
+CFLAGS  = -g -Wall -Werror
 CFLAGS += -I../../api/include
 CFLAGS += -I/opt/redpitaya/include
 CFLAGS += -DVERSION=$(VERSION) -DREVISION=$(REVISION) 
-CFLAGS +=  -lm -lpthread 
-#CFLAGS += -L /opt/erdpitaya/lib/librp.a
 LDFLAGS = -L/opt/redpitaya/lib
+LDLAGS +=  -lm -lpthread
 LDLIBS = -lm -lpthread -l:librp.so
 #CFLAGS +=  -librp
 
-%.o: %.c
-	$(CC) -c $(CFLAGS) $(LDFLAGS) $(LDLIBS) $< -o $@ 
+%.o: %.cpp
+	$(CC) -c $(CFLAGS) $< -o $@
 
-TARGET = read_signal
+#TARGET = read_signal
+TARGET = psd
 
 $(TARGET): $(OBJS)
-	$(CC) -o $(OBJS) $(CFLAGS) $(LDFLAGS) $(LDLIBS)
+	$(CC) -o $(TARGET) $(OBJS) $(LDFLAGS) $(LDLIBS)
 
 clean:
 	rm -f $(TARGET) *.o
