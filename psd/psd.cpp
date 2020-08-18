@@ -134,24 +134,6 @@ int main(int argc, char **argv)
 					mtx[k][j] = afBuff[j];
 			}
 			adMax[k] = dSamplesMax;
-/*
-			for (j=nStart ; j < (int) buff_size ; j++) {
-				if (j == nStart) {
-					dBiggest = afBuff[0];
-					dSum = afBuff[0];
-					dSamplesMax = afBuff[0];
-				}
-				else {
-					dSum += afBuff[j];
-					dSamplesMax = max (dSamplesMax, afBuff[j]);
-					if (dSamplesMax > dBiggest) {
-						dBiggest = dSamplesMax;
-					}
-				}
-			}
-			adResults[k]= (float) dSum;
-			adMax[k] = dSamplesMax;
-*/
 			nValids++;
 			if ((nValids == 0) && (in_params.Print)) {
 				print_buffer_volts (afBuff, buff_size, in_params.FileName);
