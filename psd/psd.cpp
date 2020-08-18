@@ -109,9 +109,9 @@ int main(int argc, char **argv)
 	float dSum=0;
 	int j, k, nStart = (int) d;//(nDelay * -124.9) + 8188, fPrint; // from measurements
 	float *adLong, *adShort, dHistMin=0, dHistMax=0, dSamplesMax;//, dBiggest;
-	//float **mtx = (float**) calloc (100, sizeof (mtx[0]));//new float*[100];
-	//for (j=0 ; j < 100 ; j++)
-	//	mtx[j] = (float*) calloc(buff_size, sizeof (mtx[0][0]));
+	float **mtx = (float**) calloc (100, sizeof (mtx[0]));//new float*[100];
+	for (j=0 ; j < 100 ; j++)
+		mtx[j] = (float*) calloc(buff_size, sizeof (mtx[0][0]));
 
 	adLong= new float[in_params.Iterations];//calloc (in_params.Iterations, sizeof (adResults[0]));
 	adShort = new float[in_params.Iterations];//calloc (in_params.Iterations, sizeof (adResults[0]));
@@ -129,10 +129,10 @@ int main(int argc, char **argv)
 					adShort[k] = dSum;
 			}
 			adLong[k] = dSum;
-			//if (k < 100) {
-			//	for (j=0 ; j < (int) buff_size ; j++)
-			//		mtx[k][j] = afBuff[j];
-			//}
+			if (k < 100) {
+				for (j=0 ; j < (int) buff_size ; j++)
+					mtx[k][j] = afBuff[j];
+			}
 			adMax[k] = dSamplesMax;
 /*
 			for (j=nStart ; j < (int) buff_size ; j++) {
@@ -172,7 +172,7 @@ int main(int argc, char **argv)
 	for (int n=0 ; n < in_params.Iterations ; n++)
 		fprintf (f, "%d,%g,%g, %g\n", n+1, adLong[n], adShort[n], adMax[n]);
 	fclose (f);
-/*
+/**/
 	f = fopen ("hundred.csv", "w+");
 	std::string str;
 	for (int n=0 ; n < (int) buff_size ; n++) {
@@ -185,7 +185,10 @@ int main(int argc, char **argv)
 		str = "";
 	}
 	fclose(f);
-*/
+/**/
+	for (int m=0 ; m < 100 ; m++)
+		free (mtx[m]);
+	free (mtx);
 //	print_buffer_volts (adResults, in_params.Iterations, "sums.csv");
 	//print_buffer_volts (adResults, in_params.Iterations, in_params.SumsFile);
 
