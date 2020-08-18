@@ -4,7 +4,7 @@ REVISION ?= devbuild
 
 CPP=$(CROSS_COMPILE)g++
 
-OBJS = psd.o
+OBJS = psd.o trig_params.o
 SRCS = $(subst .o,.c, $(OBJS)))
 
 TARGET = psd
