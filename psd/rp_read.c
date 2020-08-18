@@ -165,13 +165,8 @@ int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct Inpu
 {
 	time_t tStart, tNow;
 	bool fTrigger, fTimeLimit;
-
 	rp_acq_trig_state_t state = RP_TRIG_STATE_WAITING;
-	rp_AcqReset();
-	rp_AcqSetDecimation(1);
-	rp_AcqSetTriggerLevel(RP_CH_1, 10e-3); //Trig level is set in Volts while in SCPI
-	rp_AcqSetSamplingRate (RP_SMP_125M);
-	rp_AcqSetTriggerDelay(0);
+
 	rp_AcqStart();
 	usleep(1);
 	rp_AcqSetTriggerSrc(RP_TRIG_SRC_CHA_PE);
@@ -195,9 +190,6 @@ int read_input_volts (float *buff, uint32_t buff_size, int *pnWaits, struct Inpu
 	}
 	else
 		printf ("Timeout\n");
-	for(int i = 0; i < buff_size; i++){
-		buff[i] = buff[i] + 1000;
-	}
 	rp_AcqStop ();
 	return (fTrigger);
 }
