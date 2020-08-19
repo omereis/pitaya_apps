@@ -1,5 +1,4 @@
-/* Red Pitaya C API example Acquiring a signal from a buffer
- * This application acquires a signal on a specific channel */
+/* PSD - Pulse Shape Discrimination */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +13,7 @@
 using namespace std;
 
 #include "redpitaya/rp.h"
+#include "psd_params.h"
 
 #ifndef max
 #define max(a,b)            (((a) > (b)) ? (a) : (b))
@@ -51,6 +51,7 @@ void set_files_extensions (struct InputParams *in_params);
 //-----------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
+	TPsdParams m_params;
 	struct InputParams in_params;
 
 	memset (&in_params, 0, sizeof (in_params));	
