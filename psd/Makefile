@@ -4,7 +4,8 @@ REVISION ?= devbuild
 
 CPP=$(CROSS_COMPILE)g++
 
-OBJS = psd.o trig_params.o
+OBJS = psd.o trig_params.o  sampling_params.o psd_params.o
+#OBJS = psd.o trig_params.o psd_params.o trig_params.o sampling_params.o
 SRCS = $(subst .o,.c, $(OBJS)))
 
 TARGET = psd
@@ -19,12 +20,12 @@ LDLAGS +=  -lm -lpthread
 LDLIBS = -lm -lpthread -l:librp.so
 #CFLAGS +=  -librp
 
-%.o: %.cpp
-#	$(CC) -c $(CFLAGS) $< -o $@
-	$(CPP) -c -o  $@  $< $(CFLAGS)
+%.o : %.cpp
+	$(CPP) -c $(CFLAGS) $< -o $@
 
-#TARGET = read_signal
-#TARGET = psd
+#%.o: %.cpp
+#	$(CC) -c $(CFLAGS) $< -o $@
+#	$(CPP) -c -o  $@  $< $(CFLAGS)
 
 $(TARGET): $(OBJS)
 	$(CPP) -o $(TARGET) $(OBJS) $(LDFLAGS) $(LDLIBS)
