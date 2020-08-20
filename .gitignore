@@ -4,3 +4,5 @@
 *.obj
 *.elf
 rp_read
+*.swp
+*.csv
