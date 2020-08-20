@@ -1,4 +1,5 @@
 #include "psd_params.h"
+#include "proj_misc.h"
 //-----------------------------------------------------------------------------
 TPsdParams::TPsdParams ()
 {
@@ -116,5 +117,10 @@ void TPsdParams::SetLong (float rLong)
 float TPsdParams::GetLong () const
 {
 	return (m_rLong);
+}
+//-----------------------------------------------------------------------------
+bool TPsdParams::LoadFromJson (const string &strJson)
+{
+	return (true);
 }
 //-----------------------------------------------------------------------------

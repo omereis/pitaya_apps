@@ -14,6 +14,9 @@ public:
     bool operator== (const TPsdParams &other) const;
     bool operator!= (const TPsdParams &other) const;
     void Clear ();
+
+// I/O
+	bool LoadFromJson (const string &strJson);
 // getters/setters
     void SetTrigger (const TTriggerParams &trigger);
     TTriggerParams GetTrigger() const;
