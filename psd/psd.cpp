@@ -7,6 +7,7 @@
 #include <time.h>
 #include <ctype.h>
 #include <math.h>
+#include <stdarg.h>
 
 #include <iostream>
 #include <string>
@@ -48,6 +49,7 @@ void print_buffer_volts (float *buff, uint32_t buff_size, char *szFile);
 void calc_histogram (float *adResults, uint32_t nSize, int nBins, int fUseZero, char *szFile);
 void print_debug (const char *sz);
 void set_files_extensions (struct InputParams *in_params);
+void ExitWithError (const char * format, ...);
 //-----------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
@@ -61,8 +63,9 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-//	print_params (rTrigger, nSamples, nDelay, szFile);
 	print_params (&in_params);
+	m_params.LoadFromJson ("psd_params.json");
+	ExitWithError ("Quitting with error %d", 17);
         /* Print error, if rp_Init() function failed */
 	if(rp_Init() != RP_OK){
 		fprintf(stderr, "Rp api init failed!\n");
@@ -86,33 +89,16 @@ int main(int argc, char **argv)
 	if (rp_AcqSetDecimation(RP_DEC_1) != RP_OK)
 		printf("Error setting decimation\n");
 
-	rp_acq_sampling_rate_t rate;
-	rp_AcqGetSamplingRate (&rate);
-	if (rate == RP_SMP_125M)
-		printf ("Sampling rate 125 Mhz (%d)\n", (int) rate);
-	else
-		printf ("Sampling rate NOT 125 Mhz (%d)\n", (int) rate);
-
-
-        // there is an option to select coupling when using SIGNALlab 250-12
-        // rp_AcqSetAC_DC(RP_CH_1, RP_AC); // enables AC coupling on channel 1
-
-        // by default LV level gain is selected
-        // rp_AcqSetGain(RP_CH_1, RP_LOW); // user can switch gain using this command
-
-
-        /* After acquisition is started some time delay is needed in order to acquire fresh samples in to buffer*/
-        /* Here we have used time delay of one second but you can calculate exact value taking in to account buffer*/
-        /*length and smaling rate*/
-
 	int nWaits, nValids/*, fPrint, iBiggest*/;
 	double d = ((double) in_params.Delay * -1.0) + 8188.0;
 	float dSum=0;
 	int j, k, nStart = (int) d;//(nDelay * -124.9) + 8188, fPrint; // from measurements
 	float *adLong, *adShort, dHistMin=0, dHistMax=0, dSamplesMax;//, dBiggest;
-	float **mtx = (float**) calloc (100, sizeof (mtx[0]));//new float*[100];
+/*
+	float **mtx = (float**) calloc (100, sizeof (mtx[0]));
 	for (j=0 ; j < 100 ; j++)
 		mtx[j] = (float*) calloc(buff_size, sizeof (mtx[0][0]));
+*/
 
 	adLong= new float[in_params.Iterations];//calloc (in_params.Iterations, sizeof (adResults[0]));
 	adShort = new float[in_params.Iterations];//calloc (in_params.Iterations, sizeof (adResults[0]));
@@ -130,10 +116,12 @@ int main(int argc, char **argv)
 					adShort[k] = dSum;
 			}
 			adLong[k] = dSum;
+/*
 			if (k < 100) {
 				for (j=0 ; j < (int) buff_size ; j++)
 					mtx[k][j] = afBuff[j];
 			}
+*/
 			adMax[k] = dSamplesMax;
 			nValids++;
 			if ((nValids == 0) && (in_params.Print)) {
@@ -155,7 +143,7 @@ int main(int argc, char **argv)
 	for (int n=0 ; n < in_params.Iterations ; n++)
 		fprintf (f, "%d,%g,%g, %g\n", n+1, adLong[n], adShort[n], adMax[n]);
 	fclose (f);
-/**/
+/*
 	f = fopen ("hundred.csv", "w+");
 	std::string str;
 	for (int n=0 ; n < (int) buff_size ; n++) {
@@ -168,22 +156,13 @@ int main(int argc, char **argv)
 		str = "";
 	}
 	fclose(f);
-/**/
 	for (int m=0 ; m < 100 ; m++)
 		free (mtx[m]);
 	free (mtx);
-//	print_buffer_volts (adResults, in_params.Iterations, "sums.csv");
-	//print_buffer_volts (adResults, in_params.Iterations, in_params.SumsFile);
-
-/* end of 1st read */
-
-//	free (adResults);
+*/
 	delete[] adLong;
 	delete[] adShort;
-//	free (afBuff);
-//	rp_AcqStop ();
 	rp_Release();
-
 	return 0;
 }
 //-----------------------------------------------------------------------------
