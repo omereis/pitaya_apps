@@ -17,6 +17,7 @@ CFLAGS += -I/opt/redpitaya/include
 CFLAGS += -DVERSION=$(VERSION) -DREVISION=$(REVISION) 
 LDFLAGS = -L/opt/redpitaya/lib
 LDLAGS +=  -lm -lpthread
+LDFLAGS += -ljsoncpp
 LDLIBS = -lm -lpthread -l:librp.so
 #CFLAGS +=  -librp
 
