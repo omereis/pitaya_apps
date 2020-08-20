@@ -1,3 +1,6 @@
+#include <iostream>
+#include <fstream>
+#include <jsoncpp/json/json.h>
 #include "psd_params.h"
 #include "proj_misc.h"
 //-----------------------------------------------------------------------------
@@ -121,6 +124,21 @@ float TPsdParams::GetLong () const
 //-----------------------------------------------------------------------------
 bool TPsdParams::LoadFromJson (const string &strJson)
 {
+	ifstream ifs(strJson);
+	Json::Reader reader;
+	Json::Value obj;
+
+	reader.parse (ifs, obj);
+	SetSamples (obj["samples"].asInt());
 	return (true);
+}
+//-----------------------------------------------------------------------------
+void TPsdParams::print ()
+{
+	printf ("Samples: %d\n", GetSamples ());
+	printf ("Iterations: %d\n", GetIterations());
+	printf ("Short Buffer: %g\n", GetShort());
+	printf ("Long Buffer: %g\n", GetLong ());
+	printf ("Trigger:\n%s\n", m_trigger.AsString().c_str());
 }
 //-----------------------------------------------------------------------------

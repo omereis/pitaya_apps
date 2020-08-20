@@ -17,6 +17,7 @@ public:
 
 // I/O
 	bool LoadFromJson (const string &strJson);
+	void print ();
 // getters/setters
     void SetTrigger (const TTriggerParams &trigger);
     TTriggerParams GetTrigger() const;

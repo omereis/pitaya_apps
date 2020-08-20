@@ -1,4 +1,6 @@
 
+#include <string>
+using namespace std;
 #include "redpitaya/rp.h"
 
 class TTriggerParams {
@@ -10,6 +12,8 @@ public:
 	bool operator== (const TTriggerParams &other) const;
 	bool operator!= (const TTriggerParams &other) const;
 	void Clear ();
+// I/O
+	string AsString ();
 // getters/setters
 	void SetLevel (float fLevel);
 	float GetLevel () const;

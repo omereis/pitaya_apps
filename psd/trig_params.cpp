@@ -1,5 +1,6 @@
 
 #include "trig_params.h"
+#include "proj_misc.h"
 
 //-----------------------------------------------------------------------------
 TTriggerParams::TTriggerParams ()
@@ -85,5 +86,15 @@ void TTriggerParams::AssignAll (const TTriggerParams &other)
 	SetLevel (other.GetLevel ());
 	SetDelay (other.GetDelay ());
 	SetTriggerSource (other.GetTriggerSrc ());
+}
+//-----------------------------------------------------------------------------
+string TTriggerParams::AsString ()
+{
+	string str;
+
+	str = "Level: " + std::to_string (1e3 * GetLevel()) + string (" milliVolts\n");
+	str += "Delay: " + std::to_string (GetDelay()) + "\n";
+	str += "Source: " + trigger_source_name (GetTriggerSrc()) + "\n";
+	return (str);
 }
 //-----------------------------------------------------------------------------

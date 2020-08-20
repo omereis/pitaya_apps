@@ -64,7 +64,10 @@ int main(int argc, char **argv)
 	}
 
 	print_params (&in_params);
+	printf ("===========================================\n");
 	m_params.LoadFromJson ("psd_params.json");
+	m_params.print();
+	printf ("===========================================\n");
 	ExitWithError ("Quitting with error %d", 17);
         /* Print error, if rp_Init() function failed */
 	if(rp_Init() != RP_OK){
